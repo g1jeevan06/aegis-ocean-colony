@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { PlayerBody } from './physics.js';
 import { OBJECTIVES, LOGS, ZONES, ROOM_BY_SECTOR } from './data.js';
 import { CHAPTERS, INTRO, RADIO, ENDINGS, CHOICE } from './story.js';
+import { VOICES } from './voices.js';
 import { octApothem, sectorOf, worldToSector, sectorToWorld, clamp, damp, fmtTime, TAU, LV } from './util.js';
 import { SATS, satRadius } from './satellites.js';
 import { elevWorld } from './colony.js';
@@ -15,6 +16,8 @@ const GLOW_A = 51, GLOW_B = 50; // ocean glow slots for the creature under the d
 const INTRO_BEAT = 4.8;
 // heartbeat: two quick pulses every 1.25 s
 const beat = (t) => { const ph = (t % 1.25) / 1.25; return Math.exp(-((ph - 0.1) ** 2) / 0.002) + 0.6 * Math.exp(-((ph - 0.3) ** 2) / 0.002); };
+// same hash as tools/voices/make_voices.py, so an edited line never plays stale audio
+const voiceHash = (s) => { let h = 5381; for (let i = 0; i < s.length; i++) h = ((h * 33) ^ s.charCodeAt(i)) >>> 0; return h.toString(16); };
 const LEVEL_NAME = { '-1': 'SERVICE LEVEL', 0: 'LEVEL 1 · MAIN DECK', 1: 'LEVEL 2', 2: 'LEVEL 3 · ROOF' };
 
 export class Game {
@@ -24,7 +27,7 @@ export class Game {
     this.yaw = 0; this.pitch = 0;
     this.keys = {}; this.mdx = 0; this.mdy = 0;
     this.mode = 'loading';
-    this.settings = { q: 2, sens: 1, fov: 72, vol: 0.8, inv: false, fps: false };
+    this.settings = { q: 2, sens: 1, fov: 72, vol: 0.8, voice: 1, inv: false, fps: false };
     this.loadSettings();
     this.flags = { keycard: false, restored: false, scanned: false, transmitted: false, svcFound: false, pumpFound: false };
     this.logs = new Set();
@@ -55,10 +58,12 @@ export class Game {
     this.ui.el.fps.classList.toggle('hidden', !s.fps);
     this.onQuality && this.onQuality(s.q);
     const set = (id, v) => { const e = document.getElementById(id); if (e.type === 'checkbox') e.checked = v; else e.value = v; };
-    set('set-q', s.q); set('set-sens', s.sens); set('set-fov', s.fov); set('set-vol', s.vol); set('set-inv', s.inv); set('set-fps', s.fps);
+    set('set-q', s.q); set('set-sens', s.sens); set('set-fov', s.fov); set('set-vol', s.vol); set('set-voice', s.voice); set('set-inv', s.inv); set('set-fps', s.fps);
     document.getElementById('o-sens').textContent = (+s.sens).toFixed(2);
     document.getElementById('o-fov').textContent = s.fov + '°';
     document.getElementById('o-vol').textContent = Math.round(s.vol * 100) + '%';
+    document.getElementById('o-voice').textContent = Math.round(s.voice * 100) + '%';
+    if (this.voiceEl) this.voiceEl.volume = clamp(s.vol * s.voice, 0, 1);
   }
 
   // ---------------------------------------------------------------- lights
@@ -248,6 +253,7 @@ export class Game {
     on('btn-explore', () => this.start(true));
     on('btn-settings', () => ui.open('settings'));
     on('btn-controls', () => ui.open('controls'));
+    on('btn-guide', () => ui.open('guide'));
     document.querySelectorAll('#pause [data-act], #end [data-act]').forEach(b => b.addEventListener('click', () => {
       const a = b.dataset.act;
       if (a === 'resume') { ui.closeAll(); this.lock(); }
@@ -255,6 +261,7 @@ export class Game {
       if (a === 'journal') this.openJournal();
       if (a === 'settings') ui.open('settings');
       if (a === 'controls') ui.open('controls');
+      if (a === 'guide') ui.open('guide');
       if (a === 'title') { ui.closeAll(); this.toTitle(); }
       if (a === 'continue') { ui.closeAll(); this.mode = 'play'; this.lock(); }
       if (a === 'export') this.onExport && this.onExport();
@@ -271,7 +278,7 @@ export class Game {
     ui.onMapRedraw = () => this.drawBigMap();
     const s = this.settings;
     const bind = (id, key, conv) => document.getElementById(id).addEventListener('input', (e) => { s[key] = conv(e.target.type === 'checkbox' ? e.target.checked : e.target.value); this.applySettings(); this.saveSettings(); });
-    bind('set-q', 'q', Number); bind('set-sens', 'sens', Number); bind('set-fov', 'fov', Number); bind('set-vol', 'vol', Number); bind('set-inv', 'inv', Boolean); bind('set-fps', 'fps', Boolean);
+    bind('set-q', 'q', Number); bind('set-sens', 'sens', Number); bind('set-fov', 'fov', Number); bind('set-vol', 'vol', Number); bind('set-voice', 'voice', Number); bind('set-inv', 'inv', Boolean); bind('set-fps', 'fps', Boolean);
     document.getElementById('set-q').addEventListener('change', (e) => { s.q = +e.target.value; this.applySettings(); this.saveSettings(); });
     addEventListener('resize', () => { if (this.photo) ui.letterbox(true); });
   }
@@ -286,7 +293,7 @@ export class Game {
     this.titleT = 0;
   }
   toTitle() {
-    this.unlock();
+    this.unlock(); this.pauseVoice(true);
     if (this.photo) this.togglePhoto();
     this.ui.closeAll();
     this.showTitle();
@@ -374,13 +381,13 @@ export class Game {
     if (this.explore) return;
     // a new story beat replaces lines still waiting from an older one; they
     // still go in the journal so nothing is lost
-    this.heard.push(...this.radioQ); this.radioQ = [...RADIO[key]];
-    if (this.radioCur) this.radioT = Math.min(this.radioT, 1.2);
+    this.heard.push(...this.radioQ); this.radioQ = RADIO[key].map(([who, text], i) => [who, text, `${key}-${i}`]);
+    if (this.radioCur && !this.voiceEl) this.radioT = Math.min(this.radioT, 1.2);
   }
   updateRadio(dt) {
     if (this.radioCur) {
       this.radioT -= dt;
-      if (this.radioT <= 0) { this.radioCur = null; this.radioT = -0.5; this.ui.radio(null); }
+      if (this.radioT <= 0) { this.radioCur = null; this.radioT = -0.5; this.ui.radio(null); this.stopVoice(); }
       return;
     }
     if (this.radioT < 0) { this.radioT = Math.min(0, this.radioT + dt); return; }
@@ -389,7 +396,28 @@ export class Game {
     this.heard.push(line);
     this.radioT = 2.0 + line[1].length * 0.05;
     this.ui.radio(line[0], line[1]);
+    this.playVoice(line);
     this.audio.blip(1500, 0.04, 'square', 0.05); setTimeout(() => this.audio.blip(1900, 0.05, 'square', 0.05), 70);
+  }
+  // voice acting: one mp3 per radio line (tools/voices/make_voices.py)
+  playVoice([, text, key]) {
+    this.stopVoice();
+    const v = VOICES[key];
+    if (!v || v[1] !== voiceHash(text) || this.settings.voice <= 0) return;
+    const el = this.voiceEl = new window.Audio('audio/voice/' + key + '.mp3');
+    el.volume = clamp(this.settings.vol * this.settings.voice, 0, 1);
+    const textT = this.radioT;
+    this.radioT = v[0] + 0.6; // subtitles follow the voice
+    const fail = () => { if (this.voiceEl === el) { this.voiceEl = null; this.radioT = Math.max(this.radioT, textT * 0.6); } };
+    el.addEventListener('error', fail);
+    setTimeout(() => { const r = el.play(); if (r && r.catch) r.catch(fail); }, 140);
+  }
+  stopVoice() { if (this.voiceEl) { this.voiceEl.pause(); this.voiceEl = null; } }
+  pauseVoice(on) {
+    const el = this.voiceEl;
+    if (!el) return;
+    if (on && !el.paused) el.pause();
+    else if (!on && el.paused && el.currentTime > 0 && !el.ended) { const r = el.play(); if (r && r.catch) r.catch(() => {}); }
   }
   radioBusy() { return !!this.radioCur || this.radioQ.length > 0 || this.radioT < 0; }
   uplinkReady() {
@@ -449,7 +477,7 @@ export class Game {
     this.eyeY = sp.p.y + 1.62;
     this.flags = { keycard: false, restored: explore, scanned: false, transmitted: false, svcFound: false, pumpFound: false };
     this.logs = new Set(); for (const p of this.pickups) { p.taken = false; p.g.visible = true; }
-    this.radioQ = []; this.radioCur = null; this.radioT = 0; this.heard = []; this.ui.radio(null);
+    this.radioQ = []; this.radioCur = null; this.radioT = 0; this.heard = []; this.ui.radio(null); this.stopVoice();
     this.fx = { awake: false, alarm: false, ending: null, endT: 0 }; this.ending = null;
     this.keycardMesh.visible = !explore;
     this.obj = explore ? OBJECTIVES.length - 1 : 0;
@@ -539,7 +567,7 @@ export class Game {
     this.ending = which;
     this.finishTransmit();
     this.setObjective(OBJ_INDEX.done);
-    this.radioQ = []; this.radioCur = null; this.radioT = 0; this.ui.radio(null);
+    this.radioQ = []; this.radioCur = null; this.radioT = 0; this.ui.radio(null); this.stopVoice();
     this.mode = 'end-wait';
     const fade = this.ui.el.fade; fade.classList.add('on');
     setTimeout(() => { this.beginOutro(which); fade.classList.remove('on'); }, 2200);
@@ -576,7 +604,7 @@ export class Game {
   endOutro() {
     if (this.mode !== 'outro') return;
     this.mode = 'end-wait';
-    this.radioQ = []; this.radioCur = null; this.radioT = 0; this.ui.radio(null);
+    this.radioQ = []; this.radioCur = null; this.radioT = 0; this.ui.radio(null); this.stopVoice();
     const fade = this.ui.el.fade; fade.classList.add('on');
     setTimeout(() => {
       this.ui.clearCaption(); this.ui.hide('skip');
@@ -852,6 +880,7 @@ export class Game {
     this.updateLift(dt);
     this.updateDoors(dt);
     this.updateZone(dt);
+    this.pauseVoice(this.ui.anyOpen());
     if (!this.ui.anyOpen()) this.updateRadio(dt);
     if (this.fx.alarm && INDOOR.has(this.zoneId)) { this._alarmT = (this._alarmT || 0) - dt; if (this._alarmT <= 0) { this._alarmT = 3.2; this.audio.blip(520, 0.35, 'sawtooth', 0.035); setTimeout(() => this.audio.blip(390, 0.45, 'sawtooth', 0.035), 380); } }
     if (!blocked) this.updateInteract(dt); else { this.ui.prompt(''); this.ui.hold(0); }

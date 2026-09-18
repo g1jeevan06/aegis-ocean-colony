@@ -57,6 +57,9 @@ If the game is slow, pick **Medium** or **Low**.
   you choose what to send to Shore Command. There are two endings, each with its own
   closing film. Also 20 data logs to find and 2 hidden areas. Press **J** to read the
   logs and replay every radio message. Press **Space** to skip a film.
+- **Voice acting**: every radio line is voiced (synthetic neural voices with a radio
+  effect). See [GUIDE.md](GUIDE.md) for the player walkthrough, the cast, and how to
+  change lines or swap in real actors.
 
 ## Unreal Engine
 
@@ -99,4 +102,5 @@ Source files in `src/`:
 | `exterior.js` | Central tower, outer ring + courtyards, corner pylons, signs, ocean rigs |
 | `data.js` | Objectives, data logs, zone names |
 | `story.js` | Chapters, opening film, radio lines, the choice and both endings |
+| `voices.js` | Generated list of voice clips (length + text check) — made by `tools/voices/make_voices.py` |
 | `export.js` | glTF export for Unreal |

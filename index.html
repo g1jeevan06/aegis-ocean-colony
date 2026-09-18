@@ -126,6 +126,20 @@ select { background: var(--panel-solid); color: var(--text); border: 1px solid v
 #photo-hint { position: fixed; left: 50%; bottom: 9vh; transform: translateX(-50%); z-index: 31; font-family: var(--mono); font-size: 12px; color: rgba(255,255,255,0.7); letter-spacing: 0.1em; pointer-events: none; }
 #fade { position: fixed; inset: 0; background: #000; z-index: 45; opacity: 0; pointer-events: none; transition: opacity .8s; }
 #fade.on { opacity: 1; }
+#guide .card { width: min(820px, 100%); }
+#guide h3 { font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; font-size: 14px; color: var(--accent); margin: 22px 0 6px; }
+#guide p, #guide li { color: var(--muted); line-height: 1.6; font-size: 14.5px; }
+#guide ol, #guide ul { padding-left: 20px; margin: 6px 0; }
+#guide b { color: var(--text); font-weight: 600; }
+#guide kbd { font-family: var(--mono); background: rgba(79,242,255,0.15); border: 1px solid var(--line); padding: 0 5px; font-size: 12px; }
+#guide details { border: 1px solid rgba(79,242,255,0.14); background: rgba(79,242,255,0.03); margin: 6px 0; }
+#guide summary { cursor: pointer; padding: 10px 14px; font-size: 14px; letter-spacing: 0.06em; list-style: none; display: flex; justify-content: space-between; gap: 12px; }
+#guide summary::-webkit-details-marker { display: none; }
+#guide summary::after { content: '+'; font-family: var(--mono); color: var(--accent); }
+#guide details[open] summary::after { content: '−'; }
+#guide summary span { font-family: var(--mono); color: var(--accent); font-size: 11px; letter-spacing: 0.2em; margin-right: 10px; }
+#guide details > div { padding: 0 14px 10px; }
+#guide .warn { color: var(--warn); font-size: 12.5px; }
 /* ---------- story */
 #radio { position: fixed; left: 50%; bottom: clamp(120px, 17vh, 170px); transform: translateX(-50%); z-index: 32; width: min(680px, calc(100vw - 32px)); padding: 12px 18px 13px; background: linear-gradient(90deg, rgba(4,16,24,0.88), rgba(4,16,24,0.7)); border-left: 3px solid var(--sp, var(--accent)); pointer-events: none; animation: radio-in .35s ease-out; }
 #radio .who { font-family: var(--mono); font-size: 11px; letter-spacing: 0.22em; color: var(--sp, var(--accent)); display: flex; align-items: center; gap: 8px; }
@@ -184,6 +198,7 @@ select { background: var(--panel-solid); color: var(--text); border: 1px solid v
     <button class="btn primary" id="btn-start">Begin mission<small>Six chapters, radio voices, two endings</small></button>
     <button class="btn" id="btn-explore">Free explore<small>No objectives — every door open</small></button>
     <button class="btn" id="btn-settings">Settings</button>
+    <button class="btn" id="btn-guide">Guide<small>How to play, chapter walkthrough, every data log</small></button>
     <button class="btn" id="btn-controls">Controls</button>
   </div>
   <div class="title-foot">WASD MOVE · MOUSE LOOK · E INTERACT<br>BEST WITH HEADPHONES</div>
@@ -215,6 +230,7 @@ select { background: var(--panel-solid); color: var(--text); border: 1px solid v
       <button class="btn" data-act="map">Colony map</button>
       <button class="btn" data-act="journal">Journal &amp; data logs</button>
       <button class="btn" data-act="settings">Settings</button>
+      <button class="btn" data-act="guide">Guide</button>
       <button class="btn" data-act="controls">Controls</button>
       <button class="btn" data-act="export">Export level for Unreal (.glb)<small>Downloads the colony geometry + materials as one glTF file</small></button>
       <button class="btn" data-act="title">Return to title</button>
@@ -231,6 +247,7 @@ select { background: var(--panel-solid); color: var(--text); border: 1px solid v
     <div class="row"><span>Mouse sensitivity</span><input type="range" id="set-sens" min="0.2" max="3" step="0.05"><output id="o-sens"></output></div>
     <div class="row"><span>Field of view</span><input type="range" id="set-fov" min="55" max="100" step="1"><output id="o-fov"></output></div>
     <div class="row"><span>Volume</span><input type="range" id="set-vol" min="0" max="1" step="0.05"><output id="o-vol"></output></div>
+    <div class="row"><span>Voice volume</span><input type="range" id="set-voice" min="0" max="1" step="0.05"><output id="o-voice"></output></div>
     <div class="row"><span>Invert mouse Y</span><input type="checkbox" id="set-inv"><output></output></div>
     <div class="row"><span>Show FPS</span><input type="checkbox" id="set-fps"><output></output></div>
   </div>
@@ -251,6 +268,82 @@ select { background: var(--panel-solid); color: var(--text); border: 1px solid v
       <div>Menu <b>Esc</b></div><div>Touch <b>left drag move · right drag look</b></div>
     </div>
     <p>Doors open when you approach. Red doors need clearance. Data logs glow cyan — collect all twenty to hear the colony's story. Some rooms have more than one way in.</p>
+  </div>
+</div>
+
+<div class="sheet hidden" id="guide">
+  <div class="card">
+    <button class="x" data-close aria-label="Close">×</button>
+    <div class="eyebrow">FIELD GUIDE</div>
+    <h2>How to play AEGIS</h2>
+    <p>You are the relief engineer sent to AEGIS, a research colony floating in the middle of the Pacific. It went silent in a storm 36 hours ago and its commander is missing. Walk around, follow the orange marker, listen to the radio, and decide what to send home at the end. There is no combat and you cannot die. If you fall in the sea, a drone fishes you out.</p>
+
+    <h3>Basics</h3>
+    <ul>
+      <li><b>Move</b> <kbd>W A S D</kbd> · <b>look</b> with the mouse · <b>sprint</b> <kbd>Shift</kbd> · <b>jump</b> <kbd>Space</kbd> · <b>crouch</b> <kbd>C</kbd></li>
+      <li><b>Use things</b> with <kbd>E</kbd>. Big actions (consoles, the scanner, the breaker, the uplink) need you to <b>hold</b> <kbd>E</kbd> until the ring fills.</li>
+      <li>Your <b>objective</b> is top-left. The <b>orange marker</b> on the compass, minimap and map points to it, with the distance and ▲/▼ if it is on another floor.</li>
+      <li><b>Map</b> <kbd>M</kbd> has tabs for each floor and the whole site. <b>Journal</b> <kbd>J</kbd> keeps every data log and every radio message you have heard.</li>
+      <li><b>The glass lift</b> is in the entrance lobby. Stand inside and press <kbd>1</kbd> lobby, <kbd>2</kbd> Mission Control / gallery, <kbd>3</kbd> roof.</li>
+      <li><b>Radio messages</b> play with voices and subtitles. They pause while a menu is open. Change <b>Voice volume</b> in Settings.</li>
+      <li>Press <kbd>Space</kbd> or <b>SKIP</b> to skip the opening and ending films.</li>
+    </ul>
+
+    <h3>Walkthrough</h3>
+    <p class="warn">Spoilers. Open one chapter at a time.</p>
+    <details><summary><div><span>CH 1</span>Silent Water</div></summary><div><ol>
+      <li>From the landing pad, walk north over the lit bridge into the entrance lobby.</li>
+      <li>Take the glass lift to floor <kbd>2</kbd>. Mission Control is on this level.</li>
+      <li>Stand at the main console and <b>hold E</b> to restart the command bus. The colony comes back online.</li>
+    </ol></div></details>
+    <details><summary><div><span>CH 2</span>Clearance</div></summary><div><ol>
+      <li>Go back down to Level 1 and into the <b>Crew Lounge</b>. Commander Reyes' orange <b>Level-3 keycard</b> is on a table. Press E to take it.</li>
+      <li>Follow the ring corridor to the <b>red door</b> of the Cryogenic Laboratory. It opens now.</li>
+      <li>Shortcut: the stair in Engineering goes down to the service ring, and a secret stair there leads up into the cryo lab.</li>
+    </ol></div></details>
+    <details><summary><div><span>CH 3</span>The Cold Room</div></summary><div><ol>
+      <li>Walk up to the primary cryo pod and <b>hold E</b> to scan specimen AX-7.</li>
+      <li>The scan wakes it up. An alarm starts and the lights flicker.</li>
+    </ol></div></details>
+    <details><summary><div><span>CH 4</span>Heartbeat</div></summary><div><ol>
+      <li>Go to <b>Engineering</b> on Level 1, the room with two big generators.</li>
+      <li>Find the dark <b>breaker cabinet</b> with yellow stripes and a red light on the wall, then <b>hold E</b> to reset breaker bank 3. The alarm stops.</li>
+    </ol></div></details>
+    <details><summary><div><span>CH 5</span>Moon Pool</div></summary><div><ol>
+      <li>Leave the colony and cross the bridge to the <b>Marine Dock</b>, the platform with the yellow crane and the submarine.</li>
+      <li>By the railing of the moon pool there is a glowing data log on a small crate. It is <b>Reyes' suit recorder</b>. Read it.</li>
+      <li>Look out to sea past the dock. Something is glowing in the water, pulsing like a heartbeat.</li>
+    </ol></div></details>
+    <details><summary><div><span>CH 6</span>The Choice</div></summary><div><ol>
+      <li>Take the lift to floor <kbd>3</kbd>, or climb the terrace stairs, to reach the <b>Observation Roof</b>.</li>
+      <li>Go to the uplink console next to the dish and <b>hold E</b>.</li>
+      <li>Choose: <b>Send everything</b> (obey Shore Command, AX-7 is frozen for good) or <b>Send the science only</b> (let AX-7 go home to its mother).</li>
+      <li>Each choice has its own ending film. Play again from the title and pick the other one to see both.</li>
+      <li>After the ending you can press <b>Keep exploring</b> and walk around freely.</li>
+    </ol></div></details>
+
+    <h3>All 20 data logs</h3>
+    <details><summary><div><span>LOGS</span>Where to find them</div></summary><div><ul>
+      <li><b>Outside:</b> Landing Platform (next to the pad) · Energy Platform · Comms Platform · Marine Dock (two: one by the crate near the sign, one at the moon pool)</li>
+      <li><b>Level 1:</b> Entrance Lobby (reception desk) · Central Atrium (by the big tree) · Crew Lounge · Research Lab · Cryo Lab · Dock Airlock (suit room) · Engineering (work table) · Crew Quarters · Mess Hall</li>
+      <li><b>Level 2:</b> Mission Control · Observation Gallery (two, on opposite sides of the ring)</li>
+      <li><b>Roof:</b> Observation Roof</li>
+      <li><b>Hidden:</b> Service Ring (take the stair in Engineering down) · Hydro Core (the pump room under the atrium tree, reached from the service ring)</li>
+    </ul></div></details>
+
+    <h3>Hidden areas</h3>
+    <details><summary><div><span>SECRETS</span>Two places most people miss</div></summary><div><ul>
+      <li><b>Service ring:</b> in Engineering, look for the amber <b>SERVICE LEVEL ▼</b> sign and take the stairs down. A ring of tunnels runs under the whole deck. The unofficial stair up into the cryo lab counts as a hidden area if you use it before the red door is open.</li>
+      <li><b>Hydro Core:</b> from the service ring, follow the passage towards the centre of the colony to reach the green-lit pump room under the tree.</li>
+    </ul></div></details>
+
+    <h3>Tips</h3>
+    <ul>
+      <li>Lost? Press <kbd>M</kbd>. The orange diamond is where you need to go.</li>
+      <li><kbd>F</kbd> turns on fly mode, which is handy for sightseeing. <kbd>P</kbd> is photo mode.</li>
+      <li>Free explore (on the title screen) opens every door and skips the story.</li>
+      <li>If the game runs slowly, set Graphics quality to Medium or Low in Settings.</li>
+    </ul>
   </div>
 </div>
 
