@@ -47,6 +47,7 @@ export function makeSpray(scene, mistTex, hull) {
   const near = [];
   return {
     points: pts,
+    setColor(v) { mat.uniforms.uColor.value.setRGB(v, v * 1.03, v * 1.07); },
     update(dt, t, cam) {
       // pick the hull points within reach of the camera
       near.length = 0;
@@ -66,7 +67,7 @@ export function makeSpray(scene, mistTex, hull) {
           vel[j] = h[2] * out * (0.6 + Math.random() * 0.8) + (Math.random() - 0.5) * 0.8;
           vel[j + 1] = up * (0.6 + Math.random() * 0.6);
           vel[j + 2] = h[3] * out * (0.6 + Math.random() * 0.8) + (Math.random() - 0.5) * 0.8;
-          life[i] = 0.001; rate[i] = 1 / (0.7 + Math.random() * 0.9); size[i] = k === 0 ? 0.9 + Math.random() * 0.6 : 0.12 + Math.random() * 0.3; // one mist puff, the rest droplets
+          life[i] = 0.001; rate[i] = 1 / (0.7 + Math.random() * 0.9); size[i] = k === 0 ? 0.45 + Math.random() * 0.3 : 0.1 + Math.random() * 0.25; // one small mist puff, the rest droplets
         }
       }
       for (let i = 0; i < N; i++) {

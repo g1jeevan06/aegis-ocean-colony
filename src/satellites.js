@@ -24,6 +24,7 @@ function shrink(pts, c, d) {
   return pts.map(([x, z]) => { const dx = x - c[0], dz = z - c[1], l = Math.hypot(dx, dz); return [x - dx / l * d, z - dz / l * d]; });
 }
 
+const PAD_NO = { landing: '01', energy: '02', dock: '03', comms: '04' };
 function platform(B, M, s, holes = []) {
   const pts = satOutline(s), c = [0, s.v];
   B.slab(M.hullPaint, pts, holes, 5.4, 6.0);
@@ -37,6 +38,15 @@ function platform(B, M, s, holes = []) {
     const ai = shrink([a], c, 1.2)[0], bi = shrink([b], c, 1.2)[0];
     B.wall(M.dark, ai[0], ai[1], bi[0], bi[1], 1.6, 3.8, 0.4);
     B.wall(M.white, a[0], a[1], b[0], b[1], 5.3, 0.8, 0.3);
+    // big painted platform number on the outer walls, like a ship's hull
+    // sits on the outer face of the dark wall (centre line ai-bi, 0.4 thick), 1 cm proud
+    const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    let nx = bi[1] - ai[1], nz = -(bi[0] - ai[0]); const nl = Math.hypot(nx, nz); nx /= nl; nz /= nl;
+    const mx = (ai[0] + bi[0]) / 2, my = (ai[1] + bi[1]) / 2;
+    if ((mx - c[0]) * nx + (my - c[1]) * nz < 0) { nx = -nx; nz = -nz; }
+    const wm = [mx + nx * 0.212, my + nz * 0.212];
+    if (len > 6 && wm[1] > s.v - 2) sign(B, M, [{ text: PAD_NO[s.id], size: 300, color: '#d8dcdf', y: 190, align: 'left', x: 30 }, { text: 'OCEAN', size: 64, color: '#d8dcdf', y: 110, align: 'left', x: 400 }, { text: 'CONNECTS', size: 64, color: '#d8dcdf', y: 185, align: 'left', x: 400 }, { text: 'US', size: 64, color: '#d8dcdf', y: 260, align: 'left', x: 400 }],
+      wm[0], 3.5, wm[1], Math.atan2(nx, nz), 4.4, 1.6, { bg: 'rgba(0,0,0,0)', noPlate: true, transparent: true, bright: 0.9, pw: 1024, ph: 372 });
     const ao = shrink([a], c, -0.16)[0], bo = shrink([b], c, -0.16)[0];
     B.wall(M.cyan, ao[0], ao[1], bo[0], bo[1], 5.55, 0.05, 0.04);
     // pontoon at each vertex
@@ -116,8 +126,13 @@ export function buildSatellites(B, M, S, ctx) {
     const tw = (u, v) => B.wp(u, 6, v);
 
     if (s.id === 'landing') {
-      // pad markings
-      for (const [r0, r1, m] of [[8.6, 9.0, M.yellow], [6.3, 6.45, M.whiteInlay], [9.3, 9.36, M.cyan]]) {
+      // dark wet pad with painted markings
+      { const g = new THREE.CircleGeometry(11.2, 64); g.rotateX(-Math.PI / 2); B.addM(g, M.pad, B.mat(0, 6.015, s.v + 2)); }
+      for (let i = 0; i < 4; i++) { // yellow approach chevrons
+        const a = i * Math.PI / 2 + Math.PI / 4;
+        B.box(M.yellow, Math.sin(a) * 7.4, 6.021, s.v + 2 + Math.cos(a) * 7.4, 0.35, 0.005, 1.8, a);
+      }
+      for (const [r0, r1, m] of [[8.6, 9.0, M.yellow], [6.3, 6.45, M.whiteInlay], [9.3, 9.36, M.cyan], [10.9, 11.05, M.yellow]]) {
         const g = new THREE.RingGeometry(r0, r1, 72); g.rotateX(-Math.PI / 2);
         B.addM(g, m, B.mat(0, 6.02, s.v + 2));
       }

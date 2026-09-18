@@ -27,7 +27,7 @@ export class Game {
     this.yaw = 0; this.pitch = 0;
     this.keys = {}; this.mdx = 0; this.mdy = 0;
     this.mode = 'loading';
-    this.settings = { q: 2, sens: 1, fov: 72, vol: 0.8, voice: 1, inv: false, fps: false };
+    this.settings = { q: 2, sens: 1, fov: 72, vol: 0.8, voice: 1, inv: false, fps: false, mood: 'sunset' };
     this.loadSettings();
     this.flags = { keycard: false, restored: false, scanned: false, transmitted: false, svcFound: false, pumpFound: false };
     this.logs = new Set();
@@ -57,8 +57,9 @@ export class Game {
     this.audio.setVolume(s.vol);
     this.ui.el.fps.classList.toggle('hidden', !s.fps);
     this.onQuality && this.onQuality(s.q);
+    if (this.onMood && this._mood !== s.mood) { this._mood = s.mood; this.onMood(s.mood); }
     const set = (id, v) => { const e = document.getElementById(id); if (e.type === 'checkbox') e.checked = v; else e.value = v; };
-    set('set-q', s.q); set('set-sens', s.sens); set('set-fov', s.fov); set('set-vol', s.vol); set('set-voice', s.voice); set('set-inv', s.inv); set('set-fps', s.fps);
+    set('set-mood', s.mood); set('set-q', s.q); set('set-sens', s.sens); set('set-fov', s.fov); set('set-vol', s.vol); set('set-voice', s.voice); set('set-inv', s.inv); set('set-fps', s.fps);
     document.getElementById('o-sens').textContent = (+s.sens).toFixed(2);
     document.getElementById('o-fov').textContent = s.fov + '°';
     document.getElementById('o-vol').textContent = Math.round(s.vol * 100) + '%';
@@ -279,6 +280,7 @@ export class Game {
     const s = this.settings;
     const bind = (id, key, conv) => document.getElementById(id).addEventListener('input', (e) => { s[key] = conv(e.target.type === 'checkbox' ? e.target.checked : e.target.value); this.applySettings(); this.saveSettings(); });
     bind('set-q', 'q', Number); bind('set-sens', 'sens', Number); bind('set-fov', 'fov', Number); bind('set-vol', 'vol', Number); bind('set-voice', 'voice', Number); bind('set-inv', 'inv', Boolean); bind('set-fps', 'fps', Boolean);
+    document.getElementById('set-mood').addEventListener('change', (e) => { s.mood = e.target.value; this.applySettings(); this.saveSettings(); });
     document.getElementById('set-q').addEventListener('change', (e) => { s.q = +e.target.value; this.applySettings(); this.saveSettings(); });
     addEventListener('resize', () => { if (this.photo) ui.letterbox(true); });
   }

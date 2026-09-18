@@ -12,6 +12,21 @@ import { rng } from './util.js';
 export const SUN_DIR = new THREE.Vector3(0.80, 0.52, -0.30).normalize();
 export const FOG_COLOR = new THREE.Color(0xa9c2d6);
 
+// time of day.  SUN_DIR / FOG_COLOR are shared objects: a mood copies into them.
+export const MOODS = {
+  day: {
+    sun: [0.80, 0.52, -0.30], sunColor: 0xfff0dc, sunI: 3.4, hemiSky: 0xcfe6ff, hemiGround: 0x1d3440, hemiI: 0.3,
+    turbidity: 3.2, rayleigh: 1.7, mie: 0.0035, mieG: 0.8, clouds: [0.42, 0.5], exposure: 0.58, fog: 0xa9c2d6, fogD: 0.00085,
+    envI: 0.85, seaSun: [1.0, 0.92, 0.8], seaBody: 1.0, mist: 0xc9d6de,
+  },
+  // low golden sun ahead of you as you cross the bridge (north-west), warm light, colony lamps glowing
+  sunset: {
+    sun: [-0.42, 0.075, -0.9], sunColor: 0xffa35c, sunI: 2.6, hemiSky: 0x8e9fc4, hemiGround: 0x2b2630, hemiI: 0.42,
+    turbidity: 7.5, rayleigh: 2.6, mie: 0.007, mieG: 0.9, clouds: [0.66, 0.72], exposure: 0.72, fog: 0x8d93a6, fogD: 0.0011,
+    envI: 0.75, seaSun: [1.0, 0.6, 0.32], seaBody: 0.8, mist: 0xb7a9a8,
+  },
+};
+
 // final grade: vignette, slight cool lift in shadows, film grain
 const GradeShader = {
   uniforms: { tDiffuse: { value: null }, uTime: { value: 0 }, uVignette: { value: 0.32 }, uGrain: { value: 0.035 } },
@@ -84,10 +99,24 @@ export function makeSky(scene, renderer) {
   const cubeCam = new THREE.CubeCamera(1, 20000, cubeRT);
   cubeCam.update(renderer, envScene);
   const pmrem = new THREE.PMREMGenerator(renderer);
-  const envRT = pmrem.fromScene(envScene, 0, 1, 20000);
+  let envRT = pmrem.fromScene(envScene, 0, 1, 20000);
   scene.environment = envRT.texture;
   scene.environmentIntensity = 0.85;
-  return { sky, envCube: cubeRT.texture, envMap: envRT.texture };
+  // switch time of day: sky, image light and reflection cube are rebuilt
+  const setMood = (m) => {
+    for (const U of [u, u2]) {
+      U.sunPosition.value.copy(SUN_DIR).multiplyScalar(1000);
+      U.rayleigh.value = m.rayleigh;
+      if (U.cloudCoverage) { U.cloudCoverage.value = m.clouds[0]; U.cloudDensity.value = m.clouds[1]; }
+    }
+    u.turbidity.value = m.turbidity; u.mieCoefficient.value = m.mie; u.mieDirectionalG.value = m.mieG;
+    u2.turbidity.value = m.turbidity * 0.9; u2.mieCoefficient.value = m.mie * 0.2; u2.mieDirectionalG.value = 0.55;
+    band.material.color.copy(FOG_COLOR).multiplyScalar(1.6);
+    cubeCam.update(renderer, envScene);
+    const old = envRT; envRT = pmrem.fromScene(envScene, 0, 1, 20000); scene.environment = envRT.texture; old.dispose();
+    scene.environmentIntensity = m.envI;
+  };
+  return { sky, envCube: cubeRT.texture, get envMap() { return envRT.texture; }, setMood };
 }
 
 export function makeSun(scene) {
@@ -110,6 +139,7 @@ export function makeSun(scene) {
       sun.target.position.copy(tmp);
       sun.position.copy(tmp).addScaledVector(SUN_DIR, 260);
     },
+    setMood(m) { sun.color.set(m.sunColor); sun.intensity = m.sunI; hemi.color.set(m.hemiSky); hemi.groundColor.set(m.hemiGround); hemi.intensity = m.hemiI; },
     setShadowSize(n) {
       if (!n) { sun.castShadow = false; return; }
       sun.castShadow = true;
@@ -138,6 +168,7 @@ export function makeMist(scene, tex) {
   scene.add(group);
   return {
     group,
+    setColor(c) { for (const s of sprites) s.material.color.set(c); },
     update(dt, cam) {
       for (const s of sprites) {
         s.userData.a += dt * s.userData.drift / s.userData.d;

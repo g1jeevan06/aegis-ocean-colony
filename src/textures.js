@@ -359,6 +359,29 @@ function deck(size = 1024) {
   return { map: set(c, true), normalMap: set(normalFrom(hc, 2), false), roughnessMap: set(rc, false) };
 }
 
+// ---------------------------------------------------------------- helipad surface
+// dark anti-skid coating, tyre scuffs, oil, and standing water after spray
+function padTex(size = 1024) {
+  const c = cv(size), g = c.getContext('2d');
+  const rc = cv(size), rg = rc.getContext('2d');
+  g.fillStyle = '#2b2f34'; g.fillRect(0, 0, size, size);
+  rg.fillStyle = 'rgb(150,150,150)'; rg.fillRect(0, 0, size, size);
+  noiseOver(g, size, NOISE, 0.35, 'overlay');
+  noiseOver(g, size, NOISE_FINE, 0.25, 'overlay', 0.25);
+  for (let i = 0; i < 30; i++) { // tyre scuffs
+    g.strokeStyle = `rgba(12,12,14,${rnd(0.1, 0.3)})`; g.lineWidth = rnd(8, 22);
+    const x = rnd(0, size), y = rnd(0, size), a = rnd(0, 6.28), l = rnd(80, 300);
+    g.beginPath(); g.moveTo(x, y); g.quadraticCurveTo(x + Math.cos(a) * l * 0.5 + rnd(-40, 40), y + Math.sin(a) * l * 0.5 + rnd(-40, 40), x + Math.cos(a) * l, y + Math.sin(a) * l); g.stroke();
+  }
+  const blob = (ctx, x, y, r, col) => { const gr = ctx.createRadialGradient(x, y, 0, x, y, r); gr.addColorStop(0, col); gr.addColorStop(1, col.replace(/[\d.]+\)$/, '0)')); ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill(); };
+  for (let i = 0; i < 14; i++) blob(g, rnd(0, size), rnd(0, size), rnd(20, 70), 'rgba(10,10,12,0.3)');
+  for (let i = 0; i < 40; i++) { // water: near-mirror patches
+    const x = rnd(0, size), y = rnd(0, size), r = rnd(30, 110);
+    rg.save(); rg.translate(x, y); rg.scale(1, rnd(0.5, 1)); blob(rg, 0, 0, r, 'rgba(18,18,18,0.8)'); rg.restore();
+  }
+  return { map: set(c, true), roughnessMap: set(rc, false) };
+}
+
 // ---------------------------------------------------------------- floor grating
 function grating(size = 512) {
   const c = cv(size), g = c.getContext('2d');
@@ -536,8 +559,8 @@ export async function makeTextures(progress) {
   initNoise();
   const T = {};
   const steps = [
-    ['white', () => whitePanel(1024, [212, 217, 221], 0.2, 0.5, true, 1.0)],
-    ['whiteIn', () => whitePanel(1024, [214, 219, 223])],
+    ['white', () => whitePanel(1024, [172, 176, 179], 0.22, 0.55, true, 1.0)],
+    ['whiteIn', () => whitePanel(1024, [198, 202, 206])],
     ['whiteClean', () => whitePanel(1024, [222, 226, 229], 0.04, 0.35, false)],
     ['dark', () => darkPanel(1024, 0.9)],
     ['darkIn', () => darkPanel(1024)],
@@ -546,6 +569,7 @@ export async function makeTextures(progress) {
     ['floorLight', () => floorDark(1024, [150, 156, 162], 2)],
     ['deck', () => deck(1024)],
     ['grating', () => grating(512)],
+    ['pad', () => padTex(1024)],
     ['hex', () => hexTex(512)],
     ['hazard', () => hazard(256)],
     ['fabric', () => fabric(256)],

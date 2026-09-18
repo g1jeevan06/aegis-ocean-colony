@@ -1,6 +1,6 @@
 // Boot: build the colony, the sea and the sky, then run the loop.
 import * as THREE from 'three';
-import { makeRenderer, makeSky, makeSun, makeMist, makeComposer, SUN_DIR, FOG_COLOR } from './env.js';
+import { makeRenderer, makeSky, makeSun, makeMist, makeComposer, SUN_DIR, FOG_COLOR, MOODS } from './env.js';
 import { makeTextures } from './textures.js';
 import { makeMaterials } from './materials.js';
 import { makeScreens } from './screens.js';
@@ -35,13 +35,14 @@ async function boot() {
 
   await tick(0.02, 'Generating surface materials…');
   let n = 0;
-  const T = await makeTextures(async (k) => { n++; await tick(0.02 + n / 18 * 0.36, 'Texturing · ' + k); });
+  const T = await makeTextures(async (k) => { n++; await tick(0.02 + n / 19 * 0.36, 'Texturing · ' + k); });
   const M = makeMaterials(T);
   const screens = makeScreens();
 
   await tick(0.40, 'Laying the hull and decks…');
   const world = new CollisionWorld(6);
   const B = new Builder(world);
+  B.warmSwap = M.warmSwap;
   const ctx = { scene, M, marks: {}, doors: [], creatures: [], pods: [], holoSpots: [], blinkers: [], turbines: [], foam: [] };
   buildColony(B, M, screens.S, ctx);
   await tick(0.60, 'Floating the satellite platforms…');
@@ -53,7 +54,8 @@ async function boot() {
   console.info(`[AEGIS] ${meshes.length} batches, ${(B.tris / 1e6).toFixed(2)}M tris, ${world.all.length} colliders, ${B.lights.length} light anchors`);
 
   await tick(0.78, 'Lighting the sky…');
-  const { sky, envCube } = makeSky(scene, renderer);
+  const skyCtl = makeSky(scene, renderer);
+  const { sky, envCube } = skyCtl;
   const sunCtl = makeSun(scene);
   const ocean = makeOcean(renderer, envCube, T.waterNormals, SUN_DIR, 2);
   scene.add(ocean.mesh);
@@ -116,6 +118,19 @@ async function boot() {
   };
   // first-run default: Medium on small / touch screens
   try { if (!localStorage.getItem('aegis.settings') && (matchMedia('(pointer:coarse)').matches || innerWidth < 900)) game.settings.q = 1; } catch (e) { /* ignore */ }
+  // time of day
+  const seaBody = [ocean.uniforms.uDeep.value.clone(), ocean.uniforms.uShallow.value.clone()];
+  game.onMood = (name) => {
+    const m = MOODS[name] || MOODS.sunset;
+    SUN_DIR.set(...m.sun).normalize(); FOG_COLOR.set(m.fog);
+    scene.fog.color.copy(FOG_COLOR); scene.fog.density = m.fogD;
+    renderer.toneMappingExposure = m.exposure;
+    skyCtl.setMood(m); sunCtl.setMood(m); mist.setColor(m.mist);
+    ocean.uniforms.uSunDir.value.copy(SUN_DIR); ocean.uniforms.uSunColor.value.setRGB(...m.seaSun);
+    ocean.uniforms.uDeep.value.copy(seaBody[0]).multiplyScalar(m.seaBody); ocean.uniforms.uShallow.value.copy(seaBody[1]).multiplyScalar(m.seaBody);
+    spray.setColor(name === 'day' ? 1.5 : 0.62);
+    sunCtl.follow(camera.position);
+  };
   game.applySettings();
   addEventListener('resize', resize);
 

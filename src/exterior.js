@@ -31,19 +31,22 @@ function cftSignMat() {
   if (SIGN_MAT) return SIGN_MAT;
   const c = document.createElement('canvas'); c.width = 2048; c.height = 512;
   const g = c.getContext('2d');
-  g.fillStyle = '#eef1f3'; g.fillRect(0, 0, 2048, 512);
-  g.fillStyle = '#d9dee2'; g.fillRect(0, 470, 2048, 42);
-  g.strokeStyle = '#c3c9ce'; g.lineWidth = 6; g.strokeRect(10, 10, 2028, 492);
-  drawLogo(g, 110, 70, 0.2);
-  g.fillStyle = '#262c33'; g.textBaseline = 'middle';
+  g.fillStyle = '#4a5057'; g.fillRect(0, 0, 2048, 512);
+  g.strokeStyle = '#5c636a'; g.lineWidth = 6; g.strokeRect(10, 10, 2028, 492);
+  const e = document.createElement('canvas'); e.width = 2048; e.height = 512;
+  const eg = e.getContext('2d'); eg.fillStyle = '#000'; eg.fillRect(0, 0, 2048, 512);
+  drawLogo(g, 110, 70, 0.2); drawLogo(eg, 110, 70, 0.2);
+  g.fillStyle = '#f2f1ec'; g.textBaseline = 'middle';
   let fs = 190;
   do { g.font = `700 ${fs}px "Instrument Sans", "Exo 2", Arial, sans-serif`; fs -= 6; } while (g.measureText('CFT KINETIC').width > 1440 && fs > 60);
   g.fillText('CFT KINETIC', 520, 225);
+  eg.font = g.font; eg.fillStyle = '#fff'; eg.textBaseline = 'middle'; eg.fillText('CFT KINETIC', 520, 225); // only the letters glow
   g.fillStyle = '#E17924'; g.font = '600 58px "Instrument Sans", "Exo 2", Arial, sans-serif';
-  try { g.letterSpacing = '10px'; } catch (e) { /* older canvas */ }
+  try { g.letterSpacing = '10px'; } catch (err) { /* older canvas */ }
   g.fillText('AEGIS · OCEAN RESEARCH COLONY', 526, 372);
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8;
-  SIGN_MAT = new THREE.MeshStandardMaterial({ map: t, emissiveMap: t, emissive: 0xffffff, emissiveIntensity: 0.35, roughness: 0.45, metalness: 0.05 });
+  const et = new THREE.CanvasTexture(e); et.colorSpace = THREE.SRGBColorSpace;
+  SIGN_MAT = new THREE.MeshStandardMaterial({ map: t, emissiveMap: et, emissive: 0xfff2dc, emissiveIntensity: 2.2, roughness: 0.55, metalness: 0.2 });
   SIGN_MAT.userData.keepUV = true; SIGN_MAT.name = 'cftSign';
   return SIGN_MAT;
 }
@@ -334,6 +337,14 @@ function outerRing(B, M, S, ctx) {
     B.box(M.metal, 0, top + 0.05, mid, 2 * g, 0.12, dep);
     B.light(0, 10.3, mid, 0xf0f6ff, 14, 10);
     if (k === 0 || k === 4) cftSign(B, M, 0, 12.1, a1 + 0.35, 0, 13);
+    if (k === 0) { // painted wall text inside the main gateway
+      const paint = (lines, s, dz, w, h) => sign(B, M, lines, s * (g - 0.015), 8.6, mid + dz, s > 0 ? -Math.PI / 2 : Math.PI / 2, w, h, { bg: 'rgba(0,0,0,0)', noPlate: true, transparent: true, bright: 1.0 });
+      const L = (t, y, size = 64, color = '#d9dcde') => ({ text: t, y, size, color, align: 'left', x: 40 });
+      paint([L('EXPLORE', 60), L('CREATE', 140), L('EXPERIENCE', 220), L('TOGETHER', 300), L('—', 380, 64, '#ffb347')], -1, 1.6, 1.8, 1.9);
+      paint([L('IDEAS', 60), L('MOTION', 140), L('PEOPLE', 220), L('TOGETHER', 300), L('—', 380, 64, '#ffb347')], 1, 1.6, 1.8, 1.9);
+      paint([L('B1', 110, 200, '#e6e8e9'), L('OCEAN', 260), L('RESEARCH', 340), L('FACILITY', 420), L('—', 500, 64, '#ffb347')], 1, -2.2, 1.8, 2.4);
+      paint([L('A BETTER', 120, 80), L('TOMORROW', 220, 80), L('—', 320, 64, '#ffb347')], -1, -2.2, 1.8, 1.6);
+    }
     // courtyard wing on the + corner line, with an arch to walk between courtyards
     const p = (d) => { const v = 42.4 + d * COS8; return [T8 * v, v]; };
     B.wall(M.white, ...p(0), ...p(1.4), 6, 6, 3.0, { col: true });

@@ -87,6 +87,12 @@ export class Builder {
     if (!g.attributes.normal) g.computeVertexNormals();
     if (!g.attributes.uv) g.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(g.attributes.position.count * 2), 2));
     g.applyMatrix4(m);
+    // outdoors, accent strips above the waterline glow warm amber (cyan stays for the sea level and indoors)
+    if (!inter && this.warmSwap && this.warmSwap.has(mat)) {
+      const p = g.attributes.position.array; let lo = Infinity;
+      for (let i = 1; i < p.length; i += 3) if (p[i] < lo) lo = p[i];
+      if (lo > 2.5) mat = this.warmSwap.get(mat);
+    }
     g.userData.order = this.seq++;
     if (globalThis.__GEO_REC) globalThis.__GEO_REC(g, mat); // tools/geocheck: overlapping-face audit
     const sc = opt.uv !== undefined ? opt.uv : mat.userData.uv;
@@ -190,7 +196,7 @@ export class Builder {
     const pieces = [];
     for (const b of this.batches.values()) {
       const m = b.mat, opaque = !m.transparent && !m.alphaTest && (m.opacity ?? 1) >= 1 && !m.userData.shadowOnly;
-      for (const g of b.geos) pieces.push({ g, opaque, layer: b.interior ? 1 : 0 });
+      for (const g of b.geos) pieces.push({ g, opaque, layer: b.interior ? 1 : 0, decal: !!m.polygonOffset });
     }
     pieces.sort((a, b) => a.g.userData.order - b.g.userData.order);
     this.dedupe = removeHiddenFaces(pieces);

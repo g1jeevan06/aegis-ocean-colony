@@ -11,7 +11,7 @@ export function makeMaterials(T) {
   // ---- architecture
   M.white = std({ color: 0xffffff, ...T.white, roughness: 0.95, metalness: 0.0, normalScale: nscale(0.6) }, 2.4);
   M.whiteClean = std({ color: 0xffffff, ...T.whiteClean, roughness: 0.8, metalness: 0.0, normalScale: nscale(0.4) }, 3.0);
-  M.whiteSmooth = phy({ color: 0xdfe3e6, roughness: 0.42, metalness: 0.0, clearcoat: 0.25, clearcoatRoughness: 0.35 }, null); // painted composite, not glossy plastic
+  M.whiteSmooth = phy({ color: 0xb6bbbf, roughness: 0.5, metalness: 0.1, clearcoat: 0.2, clearcoatRoughness: 0.4 }, null); // painted grey composite
   M.metal = std({ color: 0xd7dce1, ...T.brushed, roughness: 0.9, metalness: 1.0 }, 1.2);
   M.chrome = std({ color: 0xe8ecef, roughness: 0.12, metalness: 1.0 }, null);
   M.dark = std({ color: 0xffffff, ...T.dark, roughness: 1.0, metalness: 0.55, normalScale: nscale(0.8) }, 2.4);
@@ -23,7 +23,8 @@ export function makeMaterials(T) {
   M.hullPaint = std({ color: 0x40464d, ...T.white, roughness: 0.9, metalness: 0.3 }, 3.0);
   M.floor = std({ color: 0xffffff, ...T.floor, roughness: 1.0, metalness: 0.2, normalScale: nscale(0.5) }, 2.4);
   M.floorLight = std({ color: 0xffffff, ...T.floorLight, roughness: 0.9, metalness: 0.05, normalScale: nscale(0.5) }, 2.4);
-  M.deck = std({ color: 0xffffff, ...T.deck, roughness: 1.0, metalness: 0.05, normalScale: nscale(0.7) }, 4.0);
+  M.deck = std({ color: 0xffffff, ...T.deck, roughness: 0.62, metalness: 0.15, normalScale: nscale(0.7) }, 4.0); // sea-damp, catches the sky
+  M.pad = decal(std({ color: 0xffffff, ...T.pad, roughness: 0.7, metalness: 0.1 }, 6.0)); // helipad coating, laid on the deck
   M.grating = std({ color: 0xffffff, ...T.grating, roughness: 0.55, metalness: 0.8 }, 1.0);
   M.hex = std({ color: 0xffffff, ...T.hex, roughness: 0.55, metalness: 0.05 }, 1.2);
   M.hazard = std({ color: 0xffffff, ...T.hazard, roughness: 0.6, metalness: 0.1 }, 0.8);
@@ -95,6 +96,11 @@ export function makeMaterials(T) {
   M.metalInlay = decal(M.metal.clone()); M.metalInlay.name = 'metalInlay';
   M.whiteInlay = decal(M.whiteClean.clone()); M.whiteInlay.name = 'whiteInlay';
   M.darkInlay = decal(M.darkSmooth.clone()); M.darkInlay.name = 'darkInlay'; // seams and inset panels
+  // warm accent lights for everything above the waterline outdoors (builder swaps cyan for these)
+  M.amberStrip = decal(emi(0xffa040, 7.0)); M.amberStrip.name = 'amberStrip';
+  M.amberSoft = decal(emi(0xffab52, 2.6)); M.amberSoft.name = 'amberSoft';
+  M.amberDim = decal(emi(0xff9a40, 1.1)); M.amberDim.name = 'amberDim';
+  M.warmSwap = new Map([[M.cyan, M.amberStrip], [M.cyanSoft, M.amberSoft], [M.cyanDim, M.amberDim]]);
   return M;
 }
 

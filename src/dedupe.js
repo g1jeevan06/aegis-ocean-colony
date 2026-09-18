@@ -73,6 +73,7 @@ export function removeHiddenFaces(pieces) {
         const gap = TD[b] - TD[a];
         if (Math.abs(gap) > EPS) continue;
         // who is in front: further out along the normal, or added later when flush
+        if (pieces[TP[a]].decal !== pieces[TP[b]].decal) continue; // a depth-offset decal (sign, strip, marking) always draws on top: keep both
         const oa = pieces[TP[a]].opaque, ob = pieces[TP[b]].opaque;
         if (!oa && !ob) continue; // glass on glass: neither writes depth, so they cannot fight
         // glass flush with a solid face always loses (a tint over a few mm is invisible);
