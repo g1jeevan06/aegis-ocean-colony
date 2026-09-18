@@ -4,6 +4,8 @@ A first-person sci-fi exploration game that runs in the browser. You arrive by V
 at a floating research colony in the middle of a calm ocean, restore its systems,
 reach the specimen in the cryo lab and send the data home.
 
+**Play online:** https://g1jeevan06.github.io/aegis-ocean-colony/
+
 ## How to play
 
 1. Double-click `index.html` (Chrome or Edge work best). No install is needed.
