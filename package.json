@@ -1,0 +1,17 @@
+{
+  "name": "aegis-ocean-colony",
+  "version": "1.0.0",
+  "private": true,
+  "description": "AEGIS Deep-Ocean Research Colony - a first-person sci-fi exploration web game",
+  "scripts": {
+    "build": "esbuild src/main.js --bundle --minify --format=iife --target=es2020 --outfile=dist/game.js",
+    "dev": "esbuild src/main.js --bundle --sourcemap --format=iife --target=es2020 --outfile=dist/game.js --watch",
+    "serve": "node tools/serve.mjs"
+  },
+  "dependencies": {
+    "three": "0.186.0"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2"
+  }
+}

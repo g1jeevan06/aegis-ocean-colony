@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AEGIS Ocean Colony</title>
+<meta name="description" content="AEGIS — a first-person sci-fi exploration game set on a floating deep-ocean research colony.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Exo+2:wght@300;400;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #02080c;
+  --panel: rgba(4, 16, 24, 0.72);
+  --panel-solid: #06141c;
+  --line: rgba(79, 242, 255, 0.28);
+  --line-strong: rgba(79, 242, 255, 0.7);
+  --accent: #4ff2ff;
+  --accent-dim: rgba(79, 242, 255, 0.55);
+  --warn: #ffb347;
+  --danger: #ff5a4a;
+  --ok: #56ff9a;
+  --text: #e8f6ff;
+  --muted: rgba(232, 246, 255, 0.62);
+  --display: "Exo 2", "Segoe UI", system-ui, sans-serif;
+  --mono: "Share Tech Mono", "Consolas", ui-monospace, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg: #02080c; } }
+:root[data-theme="dark"] { --bg: #02080c; }
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font-family: var(--display); overflow: hidden; }
+canvas#view { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+button { font: inherit; color: inherit; }
+.hidden { display: none !important; }
+
+/* ---------- loading */
+#loading { position: fixed; inset: 0; display: grid; place-items: center; background: radial-gradient(ellipse at 50% 60%, #06222c 0%, #02080c 70%); z-index: 50; }
+#loading .box { width: min(520px, 86vw); text-align: center; }
+.wordmark { font-weight: 700; letter-spacing: 0.42em; margin-right: -0.42em; font-size: clamp(44px, 9vw, 96px); line-height: 1; text-shadow: 0 0 40px rgba(79,242,255,0.35); }
+.sub { font-family: var(--mono); color: var(--accent); letter-spacing: 0.3em; font-size: 13px; margin-top: 14px; text-transform: uppercase; }
+.bar { height: 3px; background: rgba(79,242,255,0.12); margin: 36px 0 12px; position: relative; overflow: hidden; }
+.bar i { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: var(--accent); box-shadow: 0 0 12px var(--accent); transition: width .25s; }
+#load-status { font-family: var(--mono); font-size: 12px; color: var(--muted); letter-spacing: 0.08em; min-height: 1.4em; }
+
+/* ---------- title */
+#title { position: fixed; inset: 0; z-index: 30; display: flex; flex-direction: column; justify-content: flex-end; padding: 0 clamp(16px, 6vw, 96px) clamp(40px, 9vh, 110px); background: linear-gradient(90deg, rgba(2,8,12,0.78) 0%, rgba(2,8,12,0.25) 45%, rgba(2,8,12,0) 70%), linear-gradient(0deg, rgba(2,8,12,0.7) 0%, rgba(2,8,12,0) 45%); }
+#title .wordmark { font-size: clamp(56px, 11vw, 150px); text-align: left; }
+#title .sub { text-align: left; font-size: clamp(11px, 1.3vw, 15px); }
+#title .lede { max-width: 540px; color: var(--muted); font-weight: 300; font-size: clamp(14px, 1.3vw, 17px); line-height: 1.6; margin: 22px 0 30px; }
+.menu { display: flex; flex-direction: column; gap: 10px; align-items: flex-start; }
+.btn { background: rgba(4,16,24,0.55); border: 1px solid var(--line); padding: 12px 22px; min-width: 250px; text-align: left; letter-spacing: 0.16em; text-transform: uppercase; font-size: 14px; cursor: pointer; position: relative; backdrop-filter: blur(6px); transition: border-color .15s, background .15s, padding .15s; }
+.btn:hover, .btn:focus-visible { border-color: var(--accent); background: rgba(79,242,255,0.12); padding-left: 30px; outline: none; }
+.btn::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--accent); opacity: 0; transition: opacity .15s; }
+.btn:hover::before, .btn:focus-visible::before { opacity: 1; }
+.btn.primary { border-color: var(--accent-dim); }
+.btn small { display: block; letter-spacing: 0.06em; text-transform: none; color: var(--muted); font-size: 12px; margin-top: 3px; }
+.title-foot { position: absolute; right: clamp(16px, 4vw, 48px); bottom: 26px; font-family: var(--mono); font-size: 11px; color: var(--muted); text-align: right; letter-spacing: 0.1em; line-height: 1.8; }
+.letterbox { position: fixed; left: 0; right: 0; height: 7vh; background: #000; z-index: 29; pointer-events: none; transition: height .6s; }
+.letterbox.top { top: 0; } .letterbox.bot { bottom: 0; }
+
+/* ---------- HUD */
+#hud { position: fixed; inset: 0; pointer-events: none; z-index: 10; }
+.obj { position: absolute; left: 22px; top: 20px; max-width: min(420px, 60vw); padding: 12px 16px 12px 14px; background: linear-gradient(90deg, rgba(4,16,24,0.7), rgba(4,16,24,0)); border-left: 2px solid var(--accent); }
+.obj .k { font-family: var(--mono); font-size: 11px; letter-spacing: 0.25em; color: var(--accent); }
+.obj .t { font-size: 16px; font-weight: 600; margin-top: 4px; line-height: 1.35; }
+.obj .h { font-size: 12.5px; color: var(--muted); margin-top: 5px; line-height: 1.4; }
+.obj .d { font-family: var(--mono); font-size: 12px; color: var(--accent); margin-top: 6px; }
+.obj.flash { animation: flash 1.2s ease-out; }
+@keyframes flash { 0% { background: rgba(79,242,255,0.35); } 100% { } }
+#compass { position: absolute; left: 50%; top: 16px; transform: translateX(-50%); width: min(520px, 50vw); height: 34px; }
+.zone { position: absolute; right: 22px; top: 20px; text-align: right; }
+.zone .n { font-size: 15px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; }
+.zone .l { font-family: var(--mono); font-size: 11px; color: var(--accent); letter-spacing: 0.2em; margin-top: 3px; }
+.zone .c { font-family: var(--mono); font-size: 11px; color: var(--muted); letter-spacing: 0.12em; margin-top: 8px; }
+#minimap { position: absolute; right: 22px; bottom: 22px; width: 210px; height: 210px; border-radius: 50%; border: 1px solid var(--line-strong); background: rgba(2,10,16,0.55); backdrop-filter: blur(4px); }
+.cross { position: absolute; left: 50%; top: 50%; width: 4px; height: 4px; margin: -2px 0 0 -2px; border-radius: 50%; background: rgba(232,246,255,0.8); box-shadow: 0 0 6px rgba(79,242,255,0.8); }
+.prompt { position: absolute; left: 50%; top: calc(50% + 34px); transform: translateX(-50%); padding: 8px 14px; background: var(--panel); border: 1px solid var(--line); font-size: 14px; letter-spacing: 0.05em; white-space: nowrap; }
+.prompt kbd, .keys kbd, .lifepick kbd { font-family: var(--mono); background: var(--accent); color: #031018; padding: 1px 7px; margin-right: 8px; border-radius: 2px; font-weight: 700; }
+.prompt.locked { border-color: var(--danger); color: #ffd9d4; }
+.prompt.locked kbd { background: var(--danger); }
+.hold { position: absolute; left: 50%; top: 50%; width: 64px; height: 64px; margin: -32px 0 0 -32px; }
+#toasts { position: absolute; left: 50%; bottom: 90px; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.toast { background: var(--panel); border: 1px solid var(--line); padding: 9px 18px; font-size: 14px; letter-spacing: 0.04em; animation: toast 4s forwards; }
+.toast.ok { border-color: var(--ok); } .toast.warn { border-color: var(--warn); } .toast.bad { border-color: var(--danger); }
+@keyframes toast { 0% { opacity: 0; transform: translateY(8px); } 8% { opacity: 1; transform: none; } 85% { opacity: 1; } 100% { opacity: 0; } }
+.keys { position: absolute; left: 22px; bottom: 22px; font-size: 12px; color: var(--muted); line-height: 2; }
+.keys kbd { padding: 0 6px; margin-right: 4px; font-size: 11px; }
+#fps { position: absolute; left: 50%; bottom: 8px; transform: translateX(-50%); font-family: var(--mono); font-size: 11px; color: var(--muted); }
+.lifepick { position: absolute; left: 50%; top: calc(50% + 34px); transform: translateX(-50%); display: flex; gap: 8px; }
+.lifepick div { background: var(--panel); border: 1px solid var(--line); padding: 8px 12px; font-size: 13px; white-space: nowrap; }
+.lifepick div.cur { border-color: var(--accent); color: var(--accent); }
+
+/* ---------- sheets */
+.sheet { position: fixed; inset: 0; z-index: 40; display: grid; place-items: center; background: rgba(1,6,10,0.72); backdrop-filter: blur(8px); padding: 16px; }
+.card { width: min(760px, 100%); max-height: 92vh; overflow: auto; background: linear-gradient(180deg, rgba(8,26,36,0.96), rgba(4,14,20,0.97)); border: 1px solid var(--line); padding: 26px 28px; position: relative; }
+.card h2 { margin: 0 0 4px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; font-size: 20px; }
+.card .eyebrow { font-family: var(--mono); color: var(--accent); font-size: 11px; letter-spacing: 0.25em; }
+.card p { color: var(--muted); line-height: 1.65; }
+.card .x { position: absolute; right: 14px; top: 12px; background: none; border: 1px solid var(--line); width: 34px; height: 34px; cursor: pointer; font-size: 18px; }
+.card .x:hover { border-color: var(--accent); }
+.row { display: grid; grid-template-columns: 160px 1fr 60px; gap: 12px; align-items: center; padding: 10px 0; border-bottom: 1px solid rgba(79,242,255,0.08); font-size: 14px; }
+.row output { font-family: var(--mono); color: var(--accent); text-align: right; }
+input[type=range] { width: 100%; accent-color: var(--accent); }
+select { background: var(--panel-solid); color: var(--text); border: 1px solid var(--line); padding: 6px 8px; font: inherit; }
+.ctrl { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 6px 22px; margin-top: 16px; font-size: 14px; }
+.ctrl div { display: flex; justify-content: space-between; border-bottom: 1px solid rgba(79,242,255,0.08); padding: 6px 0; }
+.ctrl b { font-family: var(--mono); color: var(--accent); font-weight: 400; }
+.menu2 { display: flex; flex-direction: column; gap: 10px; margin-top: 18px; }
+.menu2 .btn { width: 100%; }
+#logview .by { font-family: var(--mono); color: var(--accent); font-size: 12px; letter-spacing: 0.12em; margin-top: 6px; }
+#logview .body { font-size: 16px; line-height: 1.75; color: var(--text); margin-top: 18px; }
+.journal { display: grid; gap: 6px; margin-top: 14px; }
+.journal button { text-align: left; background: rgba(79,242,255,0.05); border: 1px solid rgba(79,242,255,0.12); padding: 10px 12px; cursor: pointer; font-size: 14px; }
+.journal button:hover { border-color: var(--accent); }
+.journal button.locked { opacity: 0.35; cursor: default; }
+#mapcard { width: min(980px, 100%); }
+#mapcanvas { width: 100%; aspect-ratio: 16/10; display: block; background: rgba(2,10,16,0.6); border: 1px solid var(--line); margin-top: 12px; }
+.tabs { display: flex; gap: 6px; margin-top: 14px; flex-wrap: wrap; }
+.tabs button { background: none; border: 1px solid var(--line); padding: 7px 12px; cursor: pointer; font-family: var(--mono); font-size: 12px; letter-spacing: 0.1em; }
+.tabs button.on { border-color: var(--accent); color: var(--accent); background: rgba(79,242,255,0.08); }
+#end .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin: 20px 0; }
+#end .stats div { border: 1px solid var(--line); padding: 12px; }
+#end .stats b { display: block; font-family: var(--mono); color: var(--accent); font-size: 24px; font-weight: 400; }
+#resume { position: fixed; inset: 0; z-index: 35; display: grid; place-items: center; background: rgba(1,6,10,0.35); cursor: pointer; }
+#resume div { border: 1px solid var(--line-strong); background: var(--panel); padding: 14px 26px; letter-spacing: 0.2em; text-transform: uppercase; font-size: 14px; }
+#photo-hint { position: fixed; left: 50%; bottom: 9vh; transform: translateX(-50%); z-index: 31; font-family: var(--mono); font-size: 12px; color: rgba(255,255,255,0.7); letter-spacing: 0.1em; pointer-events: none; }
+#fade { position: fixed; inset: 0; background: #000; z-index: 45; opacity: 0; pointer-events: none; transition: opacity .8s; }
+#fade.on { opacity: 1; }
+@media (max-width: 720px) {
+  #minimap { width: 140px; height: 140px; }
+  .keys { display: none; }
+  .zone .c { display: none; }
+  .row { grid-template-columns: 1fr 1fr 44px; }
+  .btn { min-width: 0; width: 100%; }
+  .menu { align-items: stretch; }
+}
+</style>
+</head>
+<body>
+<canvas id="view"></canvas>
+
+<div id="loading">
+  <div class="box">
+    <div class="wordmark">AEGIS</div>
+    <div class="sub">Deep-Ocean Research Colony</div>
+    <div class="bar"><i id="load-bar"></i></div>
+    <div id="load-status">Initialising…</div>
+  </div>
+</div>
+
+<div class="letterbox top hidden" id="lb-top"></div>
+<div class="letterbox bot hidden" id="lb-bot"></div>
+
+<div id="title" class="hidden">
+  <div class="wordmark">AEGIS</div>
+  <div class="sub">Deep-Ocean Research Colony · Pacific Sector 7</div>
+  <p class="lede">The colony has been silent for thirty-six hours. You are the relief engineer. Restore its systems, reach the specimen in the cryo lab, and send the data home.</p>
+  <div class="menu">
+    <button class="btn primary" id="btn-start">Begin mission<small>Story objectives, data logs, hidden passages</small></button>
+    <button class="btn" id="btn-explore">Free explore<small>No objectives — every door open</small></button>
+    <button class="btn" id="btn-settings">Settings</button>
+    <button class="btn" id="btn-controls">Controls</button>
+  </div>
+  <div class="title-foot">WASD MOVE · MOUSE LOOK · E INTERACT<br>BEST WITH HEADPHONES</div>
+</div>
+
+<div id="hud" class="hidden">
+  <div class="obj" id="obj"><div class="k">OBJECTIVE</div><div class="t" id="obj-t"></div><div class="h" id="obj-h"></div><div class="d" id="obj-d"></div></div>
+  <canvas id="compass" width="1040" height="68"></canvas>
+  <div class="zone"><div class="n" id="zone-n"></div><div class="l" id="zone-l"></div><div class="c" id="zone-c"></div></div>
+  <canvas id="minimap" width="420" height="420"></canvas>
+  <div class="cross"></div>
+  <div class="prompt hidden" id="prompt"></div>
+  <div class="lifepick hidden" id="lifepick"></div>
+  <svg class="hold hidden" id="hold" viewBox="0 0 64 64"><circle cx="32" cy="32" r="26" fill="none" stroke="rgba(79,242,255,0.2)" stroke-width="4"/><circle id="hold-arc" cx="32" cy="32" r="26" fill="none" stroke="#4ff2ff" stroke-width="4" stroke-dasharray="163.4" stroke-dashoffset="163.4" transform="rotate(-90 32 32)"/></svg>
+  <div id="toasts"></div>
+  <div class="keys"><kbd>M</kbd>Map <kbd>J</kbd>Journal <kbd>P</kbd>Photo mode <kbd>F</kbd>Fly <kbd>Esc</kbd>Menu</div>
+  <div id="fps" class="hidden"></div>
+</div>
+
+<div id="resume" class="hidden"><div>Click to resume</div></div>
+<div id="photo-hint" class="hidden">PHOTO MODE · WASD + MOUSE FLY · Q/E DOWN/UP · SCROLL = FOV · P TO EXIT</div>
+
+<div class="sheet hidden" id="pause">
+  <div class="card">
+    <div class="eyebrow">AEGIS · PAUSED</div>
+    <h2>Menu</h2>
+    <div class="menu2">
+      <button class="btn" data-act="resume">Resume</button>
+      <button class="btn" data-act="map">Colony map</button>
+      <button class="btn" data-act="journal">Journal &amp; data logs</button>
+      <button class="btn" data-act="settings">Settings</button>
+      <button class="btn" data-act="controls">Controls</button>
+      <button class="btn" data-act="export">Export level for Unreal (.glb)<small>Downloads the colony geometry + materials as one glTF file</small></button>
+      <button class="btn" data-act="title">Return to title</button>
+    </div>
+  </div>
+</div>
+
+<div class="sheet hidden" id="settings">
+  <div class="card">
+    <button class="x" data-close aria-label="Close">×</button>
+    <div class="eyebrow">SYSTEM</div>
+    <h2>Settings</h2>
+    <div class="row"><span>Graphics quality</span><select id="set-q"><option value="0">Low</option><option value="1">Medium</option><option value="2">High</option><option value="3">Ultra</option></select><output></output></div>
+    <div class="row"><span>Mouse sensitivity</span><input type="range" id="set-sens" min="0.2" max="3" step="0.05"><output id="o-sens"></output></div>
+    <div class="row"><span>Field of view</span><input type="range" id="set-fov" min="55" max="100" step="1"><output id="o-fov"></output></div>
+    <div class="row"><span>Volume</span><input type="range" id="set-vol" min="0" max="1" step="0.05"><output id="o-vol"></output></div>
+    <div class="row"><span>Invert mouse Y</span><input type="checkbox" id="set-inv"><output></output></div>
+    <div class="row"><span>Show FPS</span><input type="checkbox" id="set-fps"><output></output></div>
+  </div>
+</div>
+
+<div class="sheet hidden" id="controls">
+  <div class="card">
+    <button class="x" data-close aria-label="Close">×</button>
+    <div class="eyebrow">FIELD MANUAL</div>
+    <h2>Controls</h2>
+    <div class="ctrl">
+      <div>Move <b>W A S D</b></div><div>Look <b>Mouse</b></div>
+      <div>Sprint <b>Shift</b></div><div>Jump <b>Space</b></div>
+      <div>Crouch / walk <b>C</b></div><div>Interact / hold to scan <b>E</b></div>
+      <div>Lift floor select <b>1 2 3</b></div><div>Colony map <b>M</b></div>
+      <div>Journal <b>J</b></div><div>Photo mode (16:9) <b>P</b></div>
+      <div>Fly mode (level review) <b>F</b></div><div>Hide HUD <b>H</b></div>
+      <div>Menu <b>Esc</b></div><div>Touch <b>left drag move · right drag look</b></div>
+    </div>
+    <p>Doors open when you approach. Red doors need clearance. Data logs glow cyan — collect all nineteen to hear the colony's story. Some rooms have more than one way in.</p>
+  </div>
+</div>
+
+<div class="sheet hidden" id="journal">
+  <div class="card">
+    <button class="x" data-close aria-label="Close">×</button>
+    <div class="eyebrow">DATA LOGS · <span id="j-count"></span></div>
+    <h2>Journal</h2>
+    <div class="journal" id="j-list"></div>
+  </div>
+</div>
+
+<div class="sheet hidden" id="logview">
+  <div class="card">
+    <button class="x" data-close aria-label="Close">×</button>
+    <div class="eyebrow">DATA LOG RECOVERED</div>
+    <h2 id="lv-title"></h2>
+    <div class="by" id="lv-by"></div>
+    <div class="body" id="lv-body"></div>
+  </div>
+</div>
+
+<div class="sheet hidden" id="mapview">
+  <div class="card" id="mapcard">
+    <button class="x" data-close aria-label="Close">×</button>
+    <div class="eyebrow">AEGIS · COLONY PLAN</div>
+    <h2>Map</h2>
+    <div class="tabs" id="map-tabs">
+      <button data-l="-1">SERVICE</button><button data-l="0">LEVEL 1</button><button data-l="1">LEVEL 2</button><button data-l="2">ROOF</button><button data-l="9">SITE</button>
+    </div>
+    <canvas id="mapcanvas" width="1600" height="1000"></canvas>
+  </div>
+</div>
+
+<div class="sheet hidden" id="end">
+  <div class="card">
+    <div class="eyebrow">TRANSMISSION COMPLETE</div>
+    <h2>AEGIS is back online</h2>
+    <p>The AX-7 dataset is on its way to shore. The crew on the Energy Platform are coming home, and somewhere under the dock the water is glowing, slow and regular as a heartbeat.</p>
+    <div class="stats" id="end-stats"></div>
+    <div class="menu2">
+      <button class="btn" data-act="continue">Keep exploring</button>
+      <button class="btn" data-act="title">Return to title</button>
+    </div>
+  </div>
+</div>
+
+<div id="fade"></div>
+<script src="dist/game.js"></script>
+</body>
+</html>
