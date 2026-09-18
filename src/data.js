@@ -3,13 +3,15 @@ export const TITLE = 'AEGIS';
 export const SUBTITLE = 'Deep-Ocean Research Colony';
 
 export const OBJECTIVES = [
-  { id: 'arrive', text: 'Cross the bridge and enter AEGIS Colony', target: 'lobby', hint: 'Follow the lit bridge north from the landing pad.' },
-  { id: 'mc', text: 'Restore systems at the Mission Control console (Level 2)', target: 'mcConsole', hint: 'The glass lift is in the entrance lobby.' },
-  { id: 'keycard', text: "Recover Commander Reyes' Level-3 keycard", target: 'keycard', hint: 'Last logged in the Crew Lounge, Level 1. Engineers know other ways in…' },
-  { id: 'cryo', text: 'Enter the Cryogenic Laboratory', target: 'cryoDoor', hint: 'Level 1, sector 4 — the red door off the ring corridor.' },
-  { id: 'scan', text: 'Scan specimen AX-7 in the primary cryo pod', target: 'specimen', hint: 'Stand at the pod and hold [E].' },
-  { id: 'uplink', text: 'Transmit the research data from the Comms Uplink (Observation Roof)', target: 'uplink', hint: 'Take the lift to Level 3, or climb the terrace stairs.' },
-  { id: 'done', text: 'Mission complete — explore the colony freely', target: null, hint: '' },
+  { id: 'arrive', ch: 1, text: 'Cross the bridge and enter AEGIS Colony', target: 'lobby', hint: 'Follow the lit bridge north from the landing pad.' },
+  { id: 'mc', ch: 1, text: 'Restore systems at the Mission Control console (Level 2)', target: 'mcConsole', hint: 'The glass lift is in the entrance lobby.' },
+  { id: 'keycard', ch: 2, text: "Recover Commander Reyes' Level-3 keycard", target: 'keycard', hint: 'Last logged in the Crew Lounge, Level 1. Engineers know other ways in…' },
+  { id: 'cryo', ch: 2, text: 'Enter the Cryogenic Laboratory', target: 'cryoDoor', hint: 'Level 1, sector 4 — the red door off the ring corridor.' },
+  { id: 'scan', ch: 3, text: 'Scan specimen AX-7 in the primary cryo pod', target: 'specimen', hint: 'Stand at the pod and hold [E].' },
+  { id: 'power', ch: 4, text: 'Containment failing — reset breaker bank 3 in Engineering', target: 'breaker', hint: 'Level 1, the room with the two generators. The breaker cabinet has a red light.' },
+  { id: 'reyes', ch: 5, text: "Follow Commander Reyes' suit beacon to the Marine Dock", target: 'reyes', hint: 'Cross the north bridge to the dock platform. Look by the moon pool.' },
+  { id: 'uplink', ch: 6, text: 'Decide what to send from the Comms Uplink (Observation Roof)', target: 'uplink', hint: 'Take the lift to Level 3, or climb the terrace stairs.' },
+  { id: 'done', ch: 7, text: 'Story complete — explore the colony freely', target: null, hint: '' },
 ];
 
 export const LOGS = {
@@ -31,6 +33,7 @@ export const LOGS = {
   log_pump: { title: 'Hydro Core', by: 'Dr. Ines Moreau', text: 'Found it. The tree roots have grown through the reservoir inlet and into the nutrient tank. The water here glows the same 488 nm as AX-7 tissue. I have not told Okafor. I am not sure what I would tell him.' },
   log_energy: { title: 'Energy Platform', by: 'Chief Eng. Lindqvist', text: 'Twelve solar arrays, three vertical-axis turbines, 40 MWh of storage. The crew is sheltering in the battery hall until the command bus is restored. Morale is fine. Someone brought cards. Someone else brought a kazoo. Please hurry.' },
   log_dock2: { title: 'Moon Pool Log', by: 'Marine Ops', text: 'NEREID hoisted for seal service. Moon pool clear. Note: sensor buoy S-14 reports a large, slow return under the dock at 03:10, 03:40 and 04:10. Regular as a heartbeat. Diver check found nothing but the glow.' },
+  log_reyes: { title: 'Suit Recorder — Cmdr. Reyes', by: 'Cmdr. Elena Reyes', text: 'If you are hearing this, you came for the data. Listen first. AX-7 is not a specimen. It is a child. The thing under the dock is its mother, and she has called for it every thirty minutes since we lifted it out of the Rift. Shore Command knows. Their "further instructions" are a purge code: keep the data, freeze the body solid, forever. I am taking Suit D down the moon pool to meet her. Send the science if you must. Do not send the purge. — E.R.' },
   log_comms: { title: 'Relay Mast', by: 'Comms Officer Haddad', text: 'The mast backs up the roof array for short-range links: drones, buoys, the VTOLs. It stays up on its own batteries, which is why you could still land. You are welcome.' },
 };
 

@@ -126,6 +126,31 @@ select { background: var(--panel-solid); color: var(--text); border: 1px solid v
 #photo-hint { position: fixed; left: 50%; bottom: 9vh; transform: translateX(-50%); z-index: 31; font-family: var(--mono); font-size: 12px; color: rgba(255,255,255,0.7); letter-spacing: 0.1em; pointer-events: none; }
 #fade { position: fixed; inset: 0; background: #000; z-index: 45; opacity: 0; pointer-events: none; transition: opacity .8s; }
 #fade.on { opacity: 1; }
+/* ---------- story */
+#radio { position: fixed; left: 50%; bottom: clamp(120px, 17vh, 170px); transform: translateX(-50%); z-index: 32; width: min(680px, calc(100vw - 32px)); padding: 12px 18px 13px; background: linear-gradient(90deg, rgba(4,16,24,0.88), rgba(4,16,24,0.7)); border-left: 3px solid var(--sp, var(--accent)); pointer-events: none; animation: radio-in .35s ease-out; }
+#radio .who { font-family: var(--mono); font-size: 11px; letter-spacing: 0.22em; color: var(--sp, var(--accent)); display: flex; align-items: center; gap: 8px; }
+#radio .who::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: var(--sp, var(--accent)); box-shadow: 0 0 8px var(--sp, var(--accent)); animation: blink 1s steps(2) infinite; }
+#radio .say { font-size: clamp(14px, 1.6vw, 17px); line-height: 1.5; margin-top: 5px; }
+@keyframes radio-in { from { opacity: 0; transform: translate(-50%, 8px); } to { opacity: 1; transform: translate(-50%, 0); } }
+@keyframes blink { 50% { opacity: 0.25; } }
+#chapter { position: fixed; inset: 0; z-index: 33; display: grid; place-items: center; pointer-events: none; text-align: center; }
+#chapter > div { padding: 60px 110px; background: radial-gradient(ellipse at center, rgba(2,8,12,0.72) 0%, rgba(2,8,12,0.45) 40%, rgba(2,8,12,0) 70%); }
+#chapter .n { font-family: var(--mono); color: var(--accent); letter-spacing: 0.45em; margin-right: -0.45em; font-size: clamp(11px, 1.3vw, 14px); }
+#chapter .t { font-weight: 300; font-size: clamp(34px, 6vw, 72px); letter-spacing: 0.12em; margin-right: -0.12em; text-transform: uppercase; margin-top: 10px; text-shadow: 0 2px 24px rgba(0,0,0,0.7), 0 0 40px rgba(79,242,255,0.35); }
+#chapter .rule { width: 120px; height: 1px; background: var(--accent); margin: 16px auto 0; box-shadow: 0 0 10px var(--accent); }
+#chapter.show { animation: chapter 5s ease-in-out forwards; }
+@keyframes chapter { 0% { opacity: 0; letter-spacing: 0.3em; } 15% { opacity: 1; } 80% { opacity: 1; } 100% { opacity: 0; } }
+#caption { position: fixed; left: 0; right: 0; bottom: 5.5vh; transform: translateY(50%); z-index: 33; text-align: center; padding: 0 16px; pointer-events: none; font-weight: 300; font-size: clamp(17px, 2.2vw, 26px); letter-spacing: 0.04em; line-height: 1.45; text-shadow: 0 2px 18px rgba(0,0,0,0.8); transition: opacity .7s; }
+#caption.mono { font-family: var(--mono); font-size: clamp(12px, 1.3vw, 15px); letter-spacing: 0.3em; color: var(--accent); }
+#skip { position: fixed; right: clamp(16px, 3vw, 36px); bottom: 3vh; z-index: 34; font-family: var(--mono); font-size: 11px; letter-spacing: 0.18em; color: rgba(232,246,255,0.55); background: none; border: 1px solid rgba(232,246,255,0.2); padding: 7px 12px; cursor: pointer; }
+#skip:hover { color: var(--text); border-color: var(--accent); }
+#choice .card { width: min(640px, 100%); }
+#choice .btn.warn:hover { border-color: var(--danger); background: rgba(255,90,74,0.1); }
+#choice .btn.warn::before { background: var(--danger); }
+.journal .sec { font-family: var(--mono); color: var(--accent); font-size: 11px; letter-spacing: 0.25em; margin-top: 18px; }
+.journal .tx { font-size: 13.5px; line-height: 1.5; color: var(--muted); padding: 6px 0 6px 12px; border-left: 2px solid var(--sp, var(--line)); }
+.journal .tx b { display: block; font-family: var(--mono); font-weight: 400; font-size: 10.5px; letter-spacing: 0.18em; color: var(--sp, var(--accent)); }
+@media (max-width: 720px) { #radio { bottom: 160px; } #chapter > div { padding: 40px 16px; } }
 @media (max-width: 720px) {
   #minimap { width: 140px; height: 140px; }
   .keys { display: none; }
@@ -154,9 +179,9 @@ select { background: var(--panel-solid); color: var(--text); border: 1px solid v
 <div id="title" class="hidden">
   <div class="wordmark">AEGIS</div>
   <div class="sub">Deep-Ocean Research Colony · Pacific Sector 7</div>
-  <p class="lede">The colony has been silent for thirty-six hours. You are the relief engineer. Restore its systems, reach the specimen in the cryo lab, and send the data home.</p>
+  <p class="lede">The colony has been silent for thirty-six hours, and its commander is missing. You are the relief engineer. Bring AEGIS back online, find out what the crew pulled out of the deep, and decide what goes home.</p>
   <div class="menu">
-    <button class="btn primary" id="btn-start">Begin mission<small>Story objectives, data logs, hidden passages</small></button>
+    <button class="btn primary" id="btn-start">Begin mission<small>Six chapters, radio voices, two endings</small></button>
     <button class="btn" id="btn-explore">Free explore<small>No objectives — every door open</small></button>
     <button class="btn" id="btn-settings">Settings</button>
     <button class="btn" id="btn-controls">Controls</button>
@@ -225,7 +250,7 @@ select { background: var(--panel-solid); color: var(--text); border: 1px solid v
       <div>Fly mode (level review) <b>F</b></div><div>Hide HUD <b>H</b></div>
       <div>Menu <b>Esc</b></div><div>Touch <b>left drag move · right drag look</b></div>
     </div>
-    <p>Doors open when you approach. Red doors need clearance. Data logs glow cyan — collect all nineteen to hear the colony's story. Some rooms have more than one way in.</p>
+    <p>Doors open when you approach. Red doors need clearance. Data logs glow cyan — collect all twenty to hear the colony's story. Some rooms have more than one way in.</p>
   </div>
 </div>
 
@@ -262,13 +287,30 @@ select { background: var(--panel-solid); color: var(--text); border: 1px solid v
 
 <div class="sheet hidden" id="end">
   <div class="card">
-    <div class="eyebrow">TRANSMISSION COMPLETE</div>
-    <h2>AEGIS is back online</h2>
-    <p>The AX-7 dataset is on its way to shore. The crew on the Energy Platform are coming home, and somewhere under the dock the water is glowing, slow and regular as a heartbeat.</p>
+    <div class="eyebrow" id="end-eyebrow">TRANSMISSION COMPLETE</div>
+    <h2 id="end-title">AEGIS is back online</h2>
+    <p id="end-text">The AX-7 dataset is on its way to shore. The crew on the Energy Platform are coming home, and somewhere under the dock the water is glowing, slow and regular as a heartbeat.</p>
     <div class="stats" id="end-stats"></div>
     <div class="menu2">
       <button class="btn" data-act="continue">Keep exploring</button>
       <button class="btn" data-act="title">Return to title</button>
+    </div>
+  </div>
+</div>
+
+<div id="radio" class="hidden"><div class="who" id="radio-who"></div><div class="say" id="radio-say"></div></div>
+<div id="chapter" class="hidden"><div><div class="n" id="ch-n"></div><div class="t" id="ch-t"></div><div class="rule"></div></div></div>
+<div id="caption" class="hidden"></div>
+<button id="skip" class="hidden">SKIP ▸▸</button>
+
+<div class="sheet hidden" id="choice">
+  <div class="card">
+    <div class="eyebrow" id="ch-eyebrow"></div>
+    <h2 id="ch-title"></h2>
+    <p id="ch-text"></p>
+    <div class="menu2">
+      <button class="btn warn" data-choice="purge"></button>
+      <button class="btn primary" data-choice="release"></button>
     </div>
   </div>
 </div>

@@ -51,7 +51,12 @@ If the game is slow, pick **Medium** or **Low**.
   marine dock (moon pool, gantry crane, submersible, boat), comms platform (50 m mast),
   a research outpost, aquaculture rings, an offshore wind farm, VTOL traffic, patrol drones,
   sea drones and sensor buoys that glow cyan-green under the water, sea mist and haze.
-- **Story**: 6 objectives, 19 data logs to find, 2 hidden areas.
+- **Story**: an opening film, then six chapters told over the radio by the crew
+  (Silent Water, Clearance, The Cold Room, Heartbeat, Moon Pool, The Choice).
+  Commander Reyes is missing, the specimen in the cryo lab wakes up, and at the end
+  you choose what to send to Shore Command. There are two endings, each with its own
+  closing film. Also 20 data logs to find and 2 hidden areas. Press **J** to read the
+  logs and replay every radio message. Press **Space** to skip a film.
 
 ## Unreal Engine
 
@@ -92,5 +97,6 @@ Source files in `src/`:
 | `textures.js` / `materials.js` | Procedural PBR textures and materials |
 | `builder.js` / `physics.js` | Geometry batching and collision |
 | `exterior.js` | Central tower, outer ring + courtyards, corner pylons, signs, ocean rigs |
-| `data.js` | Story text, objectives, data logs |
+| `data.js` | Objectives, data logs, zone names |
+| `story.js` | Chapters, opening film, radio lines, the choice and both endings |
 | `export.js` | glTF export for Unreal |

@@ -207,6 +207,10 @@ export function buildSatellites(B, M, S, ctx) {
       ctx.marks.dock = B.wp(0, 6, 104);
       ctx.marks.log_dock2 = B.wp(9.5, 6.9, 104);
       B.rbox(M.darkSmooth, 9.5, 6.45, 104, 0.9, 0.9, 0.6, 0.05, 0, { col: true });
+      // Reyes' suit recorder, left on a crate at the moon pool rail
+      ctx.marks.log_reyes = B.wp(-4, 6.9, 110.4);
+      B.rbox(M.darkSmooth, -4, 6.45, 110.4, 0.9, 0.9, 0.6, 0.05, 0, { col: true });
+      B.box(M.orangeLight, -4, 6.91, 110.71, 0.7, 0.02, 0.02);
       ctx.marks.boat = B.wp(24, 0, 122);
       ctx.marks.boatYaw = B.worldYaw(0);
     }

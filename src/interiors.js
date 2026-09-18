@@ -224,6 +224,18 @@ export function buildRoom(B, M, S, ctx, k) {
     B.pipe(M.gunmetal, -14, 10.9, 40.8, 14, 10.9, 40.8, 0.18);
     B.light(4, 10.2, 34.5, 0xfff0d8, 30, 14);
     sign(B, M, [{ text: 'SERVICE LEVEL ▼', size: 80, color: '#ffb347', y: 100 }, { text: 'AUTHORIZED MAINTENANCE ONLY', size: 44, color: '#e8f6ff', y: 196 }], -8.7, 9.6, 34.5, 0, 2.0, 0.5, { stripe: '#e8b21a' });
+    { // breaker bank 3: the story's containment reset
+      const [u, v, ry] = wallP(35.0, 0.3);
+      B.push(u, y, v, ry);
+      B.box(M.gunmetal, 0, 1.05, 0, 1.4, 2.1, 0.5, 0, { col: true });
+      B.box(M.darkSmooth, 0, 1.15, 0.26, 1.2, 1.5, 0.02);
+      for (let i = 0; i < 6; i++) B.box(M.hazard, -0.45 + i * 0.18, 1.35, 0.28, 0.1, 0.5, 0.03);
+      B.box(M.hazard, 0, 0.22, 0.26, 1.4, 0.12, 0.02);
+      B.box(M.orangeLight, 0, 2.02, 0.26, 0.5, 0.06, 0.03);
+      B.pop();
+      ctx.marks.breaker = B.wp(...(() => { const [a, b] = wallP(35.0, 1.1); return [a, y, b]; })());
+      B.light(...(() => { const [a, b] = wallP(35.0, 0.9); return [a, y + 2.4, b]; })(), 0xff6a3a, 8, 5);
+    }
     logAt('eng', -3.6, y + 0.925, 30.2);
     ctx.marks.eng = B.wp(0, y, 34);
   }

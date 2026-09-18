@@ -3,12 +3,18 @@
 import * as THREE from 'three';
 import { PlayerBody } from './physics.js';
 import { OBJECTIVES, LOGS, ZONES, ROOM_BY_SECTOR } from './data.js';
+import { CHAPTERS, INTRO, RADIO, ENDINGS, CHOICE } from './story.js';
 import { octApothem, sectorOf, worldToSector, sectorToWorld, clamp, damp, fmtTime, TAU, LV } from './util.js';
 import { SATS, satRadius } from './satellites.js';
 import { elevWorld } from './colony.js';
 
 const INDOOR = new Set(['lobby', 'lounge', 'lab', 'cryo', 'airlock', 'eng', 'quarters', 'mess', 'corridor', 'atrium', 'gallery', 'mc', 'service', 'pump', 'lift']);
 const LEVEL_OF = (y) => (y < 5.3 ? -1 : y < 11.5 ? 0 : y < 17.5 ? 1 : 2);
+const OBJ_INDEX = Object.fromEntries(OBJECTIVES.map((o, i) => [o.id, i]));
+const GLOW_A = 51, GLOW_B = 50; // ocean glow slots for the creature under the dock
+const INTRO_BEAT = 4.8;
+// heartbeat: two quick pulses every 1.25 s
+const beat = (t) => { const ph = (t % 1.25) / 1.25; return Math.exp(-((ph - 0.1) ** 2) / 0.002) + 0.6 * Math.exp(-((ph - 0.3) ** 2) / 0.002); };
 const LEVEL_NAME = { '-1': 'SERVICE LEVEL', 0: 'LEVEL 1 · MAIN DECK', 1: 'LEVEL 2', 2: 'LEVEL 3 · ROOF' };
 
 export class Game {
@@ -22,6 +28,8 @@ export class Game {
     this.loadSettings();
     this.flags = { keycard: false, restored: false, scanned: false, transmitted: false, svcFound: false, pumpFound: false };
     this.logs = new Set();
+    this.radioQ = []; this.radioCur = null; this.radioT = 0; this.heard = [];
+    this.fx = { awake: false, alarm: false, ending: null, endT: 0 };
     this.obj = 0; this.explore = false;
     this.time = 0; this.playTime = 0; this.walked = 0; this.stepAcc = 0;
     this.eyeY = 0; this.bob = 0; this.crouch = 0;
@@ -60,7 +68,7 @@ export class Game {
     for (let i = 0; i < n; i++) {
       const l = new THREE.PointLight(0xffffff, 0, 14, 2);
       l.castShadow = false; this.scene.add(l);
-      this.pool.push({ l, a: null, target: 0 });
+      this.pool.push({ l, a: null, target: 0, cur: 0 });
     }
   }
   updateLights(dt, force) {
@@ -77,11 +85,16 @@ export class Game {
       for (const s of this.pool) { if (s.a && pick.includes(s.a)) pick.splice(pick.indexOf(s.a), 1); else free.push(s); }
       for (const s of free) {
         const a = pick.shift();
-        if (a) { s.a = a; s.l.position.copy(a.p); s.l.color.copy(a.color); s.l.distance = a.dist; s.l.intensity = 0; s.target = a.intensity; }
+        if (a) { s.a = a; s.l.position.copy(a.p); s.l.color.copy(a.color); s.l.distance = a.dist; s.l.intensity = s.cur = 0; s.target = a.intensity; }
         else { s.a = null; s.target = 0; }
       }
     }
-    for (const s of this.pool) s.l.intensity = damp(s.l.intensity, s.target, 4, dt);
+    const t = this.time, al = this.fx.alarm && INDOOR.has(this.zoneId);
+    this.pool.forEach((s, i) => {
+      s.cur = damp(s.cur, s.target, 4, dt);
+      const f = al ? (Math.sin(t * 23 + i * 7.1) * Math.sin(t * 3.7 + i) > 0.35 ? 0.12 : 0.55 + 0.2 * Math.sin(t * 9 + i)) : 1;
+      s.l.intensity = s.cur * f;
+    });
   }
 
   // ---------------------------------------------------------------- pickups
@@ -134,15 +147,21 @@ export class Game {
     });
     add({
       id: 'uplink', p: m.uplink, r: 2.2, hold: 3.0,
-      label: () => this.flags.transmitted ? 'Uplink complete' : (!this.flags.restored ? 'Uplink offline — restore Mission Control first' : (!this.flags.scanned ? 'No dataset to send — scan specimen AX-7' : 'Hold to transmit AX-7 dataset')),
-      ok: () => true, can: () => this.flags.restored && this.flags.scanned && !this.flags.transmitted,
+      label: () => this.flags.transmitted ? 'Uplink complete' : (!this.flags.restored ? 'Uplink offline — restore Mission Control first' : (!this.flags.scanned ? 'No dataset to send — scan specimen AX-7' : (this.uplinkReady() ? 'Hold to open the uplink' : (this.oid === 'power' ? 'Uplink locked — containment unstable' : "Uplink standing by — follow Reyes' beacon first")))),
+      ok: () => true, can: () => this.uplinkReady(),
       use: () => this.transmit(),
+    });
+    add({
+      id: 'breaker', p: m.breaker, r: 2.0, hold: 2.5,
+      label: () => this.fx.alarm ? 'Hold to reset breaker bank 3' : 'Breaker bank 3 · stable',
+      ok: () => true, can: () => this.fx.alarm,
+      use: () => this.resetBreaker(),
     });
     for (let i = 0; i < 3; i++) add({ id: 'lift' + i, p: m['liftCall' + i], r: 1.6, label: () => this.elevAt(i) ? 'Lift is here' : 'Call lift', ok: () => true, can: () => !this.elevAt(i), use: () => this.callLift(i) });
     const cryoDoor = this.ctx.doors.find(d => d.id === 'door_r3');
     this.cryoDoor = cryoDoor;
     this.targets = {
-      lobby: m.lobby, mcConsole: m.mcConsole, keycard: m.keycard, cryoDoor: cryoDoor ? cryoDoor.pos : m.cryo, specimen: m.specimen, uplink: m.uplink,
+      lobby: m.lobby, mcConsole: m.mcConsole, keycard: m.keycard, cryoDoor: cryoDoor ? cryoDoor.pos : m.cryo, specimen: m.specimen, uplink: m.uplink, breaker: m.breaker, reyes: m.log_reyes,
     };
   }
 
@@ -153,6 +172,7 @@ export class Game {
       if (e.repeat && e.code !== 'KeyE') return;
       this.keys[e.code] = true;
       if (e.code === 'Escape' && this.mode === 'title' && this.ui.anyOpen()) { this.ui.closeTop(); return; }
+      if ((this.mode === 'intro' || this.mode === 'outro') && ['Space', 'Enter', 'Escape'].includes(e.code)) { e.preventDefault(); this.skipCine(); return; }
       if (this.mode === 'play' || this.mode === 'end') this.onKey(e);
       if (['Space', 'ArrowUp', 'ArrowDown', 'Tab'].includes(e.code) && this.mode === 'play') e.preventDefault();
     });
@@ -169,6 +189,7 @@ export class Game {
     addEventListener('mousemove', (e) => { if (this.drag && document.pointerLockElement !== cv && this.mode === 'play' && !this.ui.anyOpen()) { this.mdx += e.movementX; this.mdy += e.movementY; } });
     cv.addEventListener('contextmenu', (e) => e.preventDefault());
     this.ui.el.resume.addEventListener('click', () => { this.ui.hide('resume'); this.lock(); });
+    document.getElementById('skip').addEventListener('click', () => this.skipCine());
     document.addEventListener('pointerlockchange', () => {
       const locked = document.pointerLockElement === cv;
       if (!locked && this.mode === 'play' && !this.ui.anyOpen() && !this._intentUnlock) this.openPause();
@@ -238,6 +259,14 @@ export class Game {
       if (a === 'continue') { ui.closeAll(); this.mode = 'play'; this.lock(); }
       if (a === 'export') this.onExport && this.onExport();
     }));
+    document.querySelectorAll('#choice [data-choice]').forEach(b => {
+      const c = CHOICE[b.dataset.choice];
+      b.innerHTML = `${c[0]}<small>${c[1]}</small>`;
+      b.addEventListener('click', () => this.choose(b.dataset.choice));
+    });
+    document.getElementById('ch-eyebrow').textContent = CHOICE.eyebrow;
+    document.getElementById('ch-title').textContent = CHOICE.title;
+    document.getElementById('ch-text').textContent = CHOICE.text;
     ui.onClose = () => { if (this.mode === 'play' && !ui.anyOpen()) { this.lock(); if (!document.pointerLockElement && !('ontouchstart' in window)) ui.show('resume'); } };
     ui.onMapRedraw = () => this.drawBigMap();
     const s = this.settings;
@@ -264,21 +293,154 @@ export class Game {
   }
   start(explore) {
     this.audio.start();
+    const fresh = !this.started || explore !== this.lastExplore || this.flags.transmitted;
     this.explore = explore;
     const fade = this.ui.el.fade; fade.classList.add('on');
     setTimeout(() => {
       this.ui.hide('title');
-      this.ui.el.lbTop.classList.add('hidden'); this.ui.el.lbBot.classList.add('hidden');
-      if (this.hudOn) this.ui.show('hud');
-      if (!this.started || explore !== this.lastExplore || this.flags.transmitted) this.reset(explore);
-      this.leaveTitleFov();
       this.lastExplore = explore;
-      this.mode = 'play';
-      this.lock();
+      if (fresh) this.reset(explore);
+      if (fresh && !explore) { this.beginIntro(); fade.classList.remove('on'); return; }
+      this.ui.el.lbTop.classList.add('hidden'); this.ui.el.lbBot.classList.add('hidden');
+      this.enterPlay();
       fade.classList.remove('on');
-      if (!this.started) { this.started = true; this.ui.toast(explore ? 'Free explore — all doors unlocked' : 'Welcome to AEGIS. Click to look around.', 'ok'); }
+      if (!this.started) { this.started = true; this.ui.toast('Free explore — all doors unlocked', 'ok'); }
     }, 800);
   }
+  enterPlay() {
+    if (this.hudOn) this.ui.show('hud');
+    this.leaveTitleFov();
+    this.mode = 'play';
+    this.lock();
+  }
+
+  // ---------------------------------------------------------------- opening cinematic
+  beginIntro() {
+    this.started = true;
+    this.mode = 'intro'; this.cineT = 0;
+    this.ui.hide('hud');
+    for (const e of [this.ui.el.lbTop, this.ui.el.lbBot]) { e.classList.remove('hidden'); e.style.height = '11vh'; }
+    this.ui.show('skip');
+    const sp = this.ctx.spawn;
+    const fwd = new THREE.Vector3(-Math.sin(sp.yaw), 0, -Math.cos(sp.yaw)), right = new THREE.Vector3(-fwd.z, 0, fwd.x);
+    const eye = new THREE.Vector3(sp.p.x, sp.p.y + 1.62, sp.p.z);
+    const at = (f, r, h) => eye.clone().addScaledVector(fwd, f).addScaledVector(right, r).setY(eye.y + h);
+    // wide over the sea, round past the colony, down onto the landing pad
+    this.introPath = new THREE.CatmullRomCurve3([at(260, 230, 120), at(150, 170, 70), at(40, 120, 38), at(-50, 50, 18), at(-14, 6, 4), eye.clone()], false, 'centripetal');
+    this.introEye = eye; this.introFwd = fwd;
+    this.camera.fov = 50; this.camera.updateProjectionMatrix();
+  }
+  updateIntro(dt) {
+    this.cineT += dt;
+    const T = this.cineT, total = INTRO.length * INTRO_BEAT + 1.5;
+    const u = clamp(T / total, 0, 1), e = u * u * (3 - 2 * u);
+    const cam = this.camera;
+    cam.position.copy(this.introPath.getPointAt(e));
+    // look at the colony first, then settle on the player's first view
+    const k = clamp((u - 0.6) / 0.4, 0, 1), kk = k * k * (3 - 2 * k);
+    this.camTarget.set(0, 10, 0).lerp(this.introEye.clone().addScaledVector(this.introFwd, 60).setY(this.introEye.y - 1), kk);
+    cam.lookAt(this.camTarget);
+    cam.fov = 50 + (this.settings.fov - 50) * kk; cam.updateProjectionMatrix();
+    const i = Math.floor(T / INTRO_BEAT), ph = T - i * INTRO_BEAT;
+    if (i < INTRO.length && ph > 0.4 && ph < INTRO_BEAT - 0.6) this.ui.caption(INTRO[i], i === 0); else this.ui.caption('');
+    if (T >= total) this.endIntro();
+  }
+  endIntro() {
+    if (this.mode !== 'intro') return;
+    this.mode = 'play-wait';
+    const fade = this.ui.el.fade; fade.classList.add('on');
+    setTimeout(() => {
+      this.ui.clearCaption(); this.ui.hide('skip');
+      this.ui.el.lbTop.classList.add('hidden'); this.ui.el.lbBot.classList.add('hidden');
+      this.enterPlay();
+      fade.classList.remove('on');
+      this.chapter(1);
+      setTimeout(() => this.say('landed'), 2500);
+    }, 800);
+  }
+  skipCine() { if (this.mode === 'intro') this.endIntro(); else if (this.mode === 'outro') this.endOutro(); }
+
+  // ---------------------------------------------------------------- story helpers
+  get oid() { return (OBJECTIVES[this.obj] || {}).id; }
+  goto(id) {
+    if (this.explore) return;
+    const i = OBJ_INDEX[id], prev = OBJECTIVES[this.obj].ch;
+    this.setObjective(i);
+    const ch = OBJECTIVES[i].ch;
+    if (ch !== prev && CHAPTERS[ch]) this.chapter(ch);
+  }
+  chapter(ch) { if (CHAPTERS[ch]) { this.ui.chapter(CHAPTERS[ch]); this.audio.chord([220, 330, 440], 1.2); } }
+  say(key) {
+    if (this.explore) return;
+    // a new story beat replaces lines still waiting from an older one; they
+    // still go in the journal so nothing is lost
+    this.heard.push(...this.radioQ); this.radioQ = [...RADIO[key]];
+    if (this.radioCur) this.radioT = Math.min(this.radioT, 1.2);
+  }
+  updateRadio(dt) {
+    if (this.radioCur) {
+      this.radioT -= dt;
+      if (this.radioT <= 0) { this.radioCur = null; this.radioT = -0.5; this.ui.radio(null); }
+      return;
+    }
+    if (this.radioT < 0) { this.radioT = Math.min(0, this.radioT + dt); return; }
+    if (!this.radioQ.length) return;
+    const line = this.radioCur = this.radioQ.shift();
+    this.heard.push(line);
+    this.radioT = 2.0 + line[1].length * 0.05;
+    this.ui.radio(line[0], line[1]);
+    this.audio.blip(1500, 0.04, 'square', 0.05); setTimeout(() => this.audio.blip(1900, 0.05, 'square', 0.05), 70);
+  }
+  radioBusy() { return !!this.radioCur || this.radioQ.length > 0 || this.radioT < 0; }
+  uplinkReady() {
+    if (this.flags.transmitted || !this.flags.restored || !this.flags.scanned) return false;
+    return this.explore || this.oid === 'uplink';
+  }
+  cryoGlow(t) {
+    const f = this.fx;
+    if (f.ending === 'release') return 0;
+    if (f.ending === 'purge') return Math.max(0.05, 1.6 * (1 - f.endT / 5));
+    if (f.awake) return 1.8 + beat(t) * 3.5;
+    return 1.6 + Math.sin(t * 1.3) * 0.3;
+  }
+  // the creature under the dock: ocean-shader glows plus a flat additive
+  // disc just under the surface so it still reads in full daylight
+  buildCreature() {
+    const mk = () => {
+      const m = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ map: this.T.glow, color: new THREE.Color(0.35, 1.8, 1.5), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, fog: false }));
+      m.rotation.x = -Math.PI / 2; m.visible = false; m.renderOrder = 2; this.scene.add(m); return m;
+    };
+    this.creature = [mk(), mk()];
+  }
+  updateSeaGlow(dt, t) {
+    const G = this.ocean.glows, a = G[GLOW_A], b = G[GLOW_B], s = this.ctx.marks.sub;
+    if (!a || !s) return;
+    if (!this.creature) this.buildCreature();
+    const f = this.fx;
+    if (f.ending) f.endT += dt;
+    const d = Math.hypot(s.x, s.z), dx = s.x / d, dz = s.z / d;
+    const hx = s.x + dx * 34, hz = s.z + dz * 34; // open water just past the dock
+    b.w = 0;
+    if (f.ending === 'release') {
+      const T = f.endT, grow = clamp(T / 7, 0, 1), go = Math.max(0, T - 12) * 4, fade = clamp(1 - (T - 34) / 8, 0, 1);
+      a.set(hx + dx * go, 8 + grow * 14, hz + dz * go, (0.6 + grow * 3 + beat(t) * 1.2) * fade);
+      if (T > 5) b.set(hx + dx * (go - 5) + dz * 4, 4, hz + dz * (go - 5) - dx * 4, (0.8 + beat(t + 0.3) * 0.8) * fade * clamp((T - 5) / 3, 0, 1));
+    } else if (f.ending === 'purge') {
+      a.set(hx, 8, hz, clamp(1 - (f.endT - 7) / 6, 0, 1) * (0.6 + beat(t) * 1.4)); // dies after 'purge complete'
+    } else if (f.awake) {
+      a.set(hx, 8, hz, 0.4 + beat(t) * 1.4);
+    } else {
+      a.set(hx, 7, hz, this.explore || this.mode === 'title' ? 0 : 0.15 + beat(t * 0.5) * 0.35);
+    }
+    [a, b].forEach((g, i) => {
+      const m = this.creature[i];
+      m.visible = g.w > 0.01;
+      if (!m.visible) return;
+      m.position.set(g.x, 0.25, g.z); m.scale.setScalar(g.y * 3.2);
+      m.material.opacity = Math.min(1, g.w * 0.35);
+    });
+  }
+
   reset(explore) {
     const sp = this.ctx.spawn;
     this.body.pos.x = sp.p.x; this.body.pos.y = sp.p.y; this.body.pos.z = sp.p.z;
@@ -287,6 +449,8 @@ export class Game {
     this.eyeY = sp.p.y + 1.62;
     this.flags = { keycard: false, restored: explore, scanned: false, transmitted: false, svcFound: false, pumpFound: false };
     this.logs = new Set(); for (const p of this.pickups) { p.taken = false; p.g.visible = true; }
+    this.radioQ = []; this.radioCur = null; this.radioT = 0; this.heard = []; this.ui.radio(null);
+    this.fx = { awake: false, alarm: false, ending: null, endT: 0 }; this.ending = null;
     this.keycardMesh.visible = !explore;
     this.obj = explore ? OBJECTIVES.length - 1 : 0;
     this.playTime = 0; this.walked = 0;
@@ -311,7 +475,7 @@ export class Game {
     const t = this.objTarget();
     this.ui.bigMap(this.body.pos.x, this.body.pos.z, this.yaw, t, t ? LEVEL_OF(t.y) : 0);
   }
-  openJournal() { this.unlock(); this.ui.journal(this.logs, (id) => this.ui.showLog(id)); this.ui.open('journal'); }
+  openJournal() { this.unlock(); this.ui.journal(this.logs, (id) => this.ui.showLog(id), this.heard); this.ui.open('journal'); }
 
   // ---------------------------------------------------------------- actions
   takeLog(pk) {
@@ -319,41 +483,119 @@ export class Game {
     this.audio.chord([880, 1175], 0.2);
     this.ui.toast(`Data log recovered · ${this.logs.size}/${Object.keys(LOGS).length}`, 'ok');
     this.unlock(); this.ui.showLog(pk.id);
+    if (pk.id === 'log_reyes' && this.oid === 'reyes') { this.goto('uplink'); this.say('reyes'); }
   }
   takeKeycard() {
     this.flags.keycard = true; this.keycardMesh.visible = false;
     this.audio.chord([520, 780, 1040], 0.3);
     this.ui.toast('Level-3 keycard acquired', 'ok');
-    if (this.obj <= 2) this.setObjective(this.flags.restored ? 3 : Math.max(this.obj, 1));
+    if (this.oid === 'keycard') { this.goto('cryo'); this.say('keycard'); }
+    else if (this.oid === 'arrive' || this.oid === 'mc') this.say('keycardEarly');
   }
   restore() {
     this.flags.restored = true; this.screens.state.restored = true; this.screens.redrawAll(this.time);
     this.audio.chord([440, 660, 880, 1320], 0.4);
     this.ui.toast('Command bus re-sequenced · systems online', 'ok');
-    this.ui.toast('Cryo bay remains sealed — Level-3 clearance required', 'warn');
-    if (this.obj <= 1) this.setObjective(this.flags.keycard ? 3 : 2);
+    if (this.oid === 'arrive' || this.oid === 'mc') {
+      this.goto(this.flags.keycard ? 'cryo' : 'keycard');
+      this.say('restored');
+    }
   }
   scan() {
     this.flags.scanned = true; this.screens.state.scanned = true;
     this.audio.chord([392, 523, 784, 1046], 0.5);
     this.ui.toast('Specimen AX-7 scanned · 2.4 PB dataset secured', 'ok');
-    if (!this.explore) this.setObjective(5);
+    if (this.explore) return;
+    this.fx.awake = true;
+    setTimeout(() => {
+      if (this.oid !== 'scan') return;
+      this.fx.alarm = true; this.audio.denied();
+      this.ui.toast('CONTAINMENT ALERT · local power cells failing', 'bad');
+      this.goto('power'); this.say('scanned');
+    }, 1800);
+  }
+  resetBreaker() {
+    this.fx.alarm = false;
+    this.audio.noiseHit(300, 0.6, 0.3, 'lowpass', 0); this.audio.chord([330, 440, 660], 0.5);
+    this.ui.toast('Breaker bank 3 reset · containment stable', 'ok');
+    if (this.oid !== 'power') return;
+    if (this.logs.has('log_reyes')) { this.goto('uplink'); this.say('powerAfterReyes'); }
+    else { this.goto('reyes'); this.say('power'); }
   }
   transmit() {
+    if (this.explore) { this.finishTransmit(); return; }
+    this.say('uplinkReady');
+    this.unlock(); this.ui.open('choice');
+  }
+  finishTransmit() {
     this.flags.transmitted = true; this.screens.state.transmitted = true;
     this.ctx.dishActive = true;
     this.life.takeoff();
     this.audio.chord([330, 494, 659, 988, 1318], 0.7);
     this.ui.toast('Uplink locked · transmitting to orbital relay…', 'ok');
-    if (!this.explore) {
-      this.setObjective(6);
-      setTimeout(() => this.showEnd(), 6500);
+  }
+  choose(which) {
+    this.ui.closeAll();
+    this.ending = which;
+    this.finishTransmit();
+    this.setObjective(OBJ_INDEX.done);
+    this.radioQ = []; this.radioCur = null; this.radioT = 0; this.ui.radio(null);
+    this.mode = 'end-wait';
+    const fade = this.ui.el.fade; fade.classList.add('on');
+    setTimeout(() => { this.beginOutro(which); fade.classList.remove('on'); }, 2200);
+  }
+
+  // ---------------------------------------------------------------- ending cinematic
+  beginOutro(which) {
+    this.mode = 'outro'; this.cineT = 0; this.cardT = -1;
+    this.fx.awake = false; this.fx.alarm = false; this.fx.ending = which; this.fx.endT = 0;
+    this.ui.hide('hud'); this.ui.prompt(''); this.ui.hold(0);
+    for (const e of [this.ui.el.lbTop, this.ui.el.lbBot]) { e.classList.remove('hidden'); e.style.height = '11vh'; }
+    this.ui.show('skip');
+    this.say(which === 'purge' ? 'endingPurge' : 'endingRelease');
+    this.camera.fov = 55; this.camera.updateProjectionMatrix();
+  }
+  updateOutro(dt) {
+    this.cineT += dt;
+    const T = Math.min(this.cineT, 40), s = this.ctx.marks.sub, cam = this.camera;
+    const d = Math.hypot(s.x, s.z), dx = s.x / d, dz = s.z / d, rx = -dz, rz = dx;
+    // hang behind the dock, drift slowly out over the moon pool towards the sea
+    const back = 30 - T * 0.25, side = 16 - T * 0.2;
+    cam.position.set(s.x - dx * back + rx * side, 26 - T * 0.15, s.z - dz * back + rz * side);
+    const out = this.fx.ending === 'release' ? 34 + Math.max(0, T - 12) * 2.5 : 34;
+    this.camTarget.set(s.x + dx * out, 0, s.z + dz * out);
+    cam.lookAt(this.camTarget);
+    // closing cards once the radio has finished
+    if (this.cineT > 3 && !this.radioBusy()) {
+      this.cardT = Math.max(this.cardT, 0) + dt;
+      const cards = ENDINGS[this.fx.ending].cards, i = Math.floor(this.cardT / 4.6);
+      if (i < cards.length) this.ui.caption(this.cardT - i * 4.6 < 4.0 ? cards[i] : '');
+      else this.endOutro();
     }
+  }
+  endOutro() {
+    if (this.mode !== 'outro') return;
+    this.mode = 'end-wait';
+    this.radioQ = []; this.radioCur = null; this.radioT = 0; this.ui.radio(null);
+    const fade = this.ui.el.fade; fade.classList.add('on');
+    setTimeout(() => {
+      this.ui.clearCaption(); this.ui.hide('skip');
+      this.ui.el.lbTop.classList.add('hidden'); this.ui.el.lbBot.classList.add('hidden');
+      this.leaveTitleFov();
+      if (this.hudOn) this.ui.show('hud');
+      this.fx.endT = Math.max(this.fx.endT, 40);
+      fade.classList.remove('on');
+      this.showEnd();
+    }, 800);
   }
   showEnd() {
     this.mode = 'end'; this.unlock();
+    const E = ENDINGS[this.ending] || ENDINGS.release;
+    document.getElementById('end-eyebrow').textContent = E.eyebrow;
+    document.getElementById('end-title').textContent = E.title;
+    document.getElementById('end-text').textContent = E.text;
     const st = document.getElementById('end-stats');
-    st.innerHTML = `<div><b>${fmtTime(this.playTime)}</b>Mission time</div><div><b>${this.logs.size}/${Object.keys(LOGS).length}</b>Data logs</div><div><b>${(this.flags.svcFound ? 1 : 0) + (this.flags.pumpFound ? 1 : 0)}/2</b>Hidden areas</div><div><b>${(this.walked / 1000).toFixed(2)} km</b>Walked</div>`;
+    st.innerHTML = `<div><b>${fmtTime(this.playTime)}</b>Mission time</div><div><b>${this.logs.size}/${Object.keys(LOGS).length}</b>Data logs</div><div><b>${(this.flags.svcFound ? 1 : 0) + (this.flags.pumpFound ? 1 : 0)}/2</b>Hidden areas</div><div><b>${this.ending === 'purge' ? '1 of 2' : '2 of 2'}</b>${this.ending === 'purge' ? 'Ending · Orders' : 'Ending · Mercy'}</div>`;
     this.ui.open('end');
   }
 
@@ -458,10 +700,8 @@ export class Game {
       this.ui.zone(ZONES[z] || '', sat ? 'EXTERIOR · SEA LEVEL +6 M' : LEVEL_NAME[lv], `LOGS ${this.logs.size}/${Object.keys(LOGS).length}`);
       // story triggers
       if (!this.explore) {
-        if (this.obj === 0 && INDOOR.has(z) && z !== 'service' && z !== 'pump') this.setObjective(this.flags.restored ? 2 : 1);
-        if (z === 'cryo' && this.obj <= 3 && this.obj >= 1) {
-          if (this.flags.restored) this.setObjective(4);
-        }
+        if (this.oid === 'arrive' && INDOOR.has(z) && z !== 'service' && z !== 'pump') { this.goto('mc'); this.say('inside'); }
+        if (z === 'cryo' && this.flags.restored && (this.oid === 'keycard' || this.oid === 'cryo')) { this.goto('scan'); this.say('cryo'); }
       }
       if (z === 'cryo' && this.body.pos.y < 11 && !this.flags.svcFound && !this.doorUnlocked(this.cryoDoor)) { this.flags.svcFound = true; this.ui.toast('Hidden area found · cryo sublevel passage', 'ok'); }
       if (z === 'pump' && !this.flags.pumpFound) { this.flags.pumpFound = true; this.ui.toast('Hidden area found · Hydro Core', 'ok'); }
@@ -539,7 +779,14 @@ export class Game {
   // ---------------------------------------------------------------- per-frame
   update(dt, t) {
     this.time = t;
-    if (this.mode === 'title' || this.mode === 'loading') { this.updateTitle(dt, t); return; }
+    if (this.mode === 'title' || this.mode === 'loading') { this.updateTitle(dt, t); this.updateSeaGlow(dt, t); return; }
+    if (this.mode === 'intro' || this.mode === 'outro' || this.mode === 'play-wait' || this.mode === 'end-wait') {
+      if (this.mode === 'intro') this.updateIntro(dt);
+      if (this.mode === 'outro') { this.updateOutro(dt); this.updateRadio(dt); }
+      this.zoneId = 'ocean';
+      this.common(dt, t);
+      return;
+    }
     const s = this.settings;
     const sens = 0.0022 * s.sens;
     this.yaw -= this.mdx * sens;
@@ -605,6 +852,8 @@ export class Game {
     this.updateLift(dt);
     this.updateDoors(dt);
     this.updateZone(dt);
+    if (!this.ui.anyOpen()) this.updateRadio(dt);
+    if (this.fx.alarm && INDOOR.has(this.zoneId)) { this._alarmT = (this._alarmT || 0) - dt; if (this._alarmT <= 0) { this._alarmT = 3.2; this.audio.blip(520, 0.35, 'sawtooth', 0.035); setTimeout(() => this.audio.blip(390, 0.45, 'sawtooth', 0.035), 380); } }
     if (!blocked) this.updateInteract(dt); else { this.ui.prompt(''); this.ui.hold(0); }
 
     // pickups idle animation
@@ -632,6 +881,7 @@ export class Game {
 
   common(dt, t) {
     this.updateLights(dt);
+    this.updateSeaGlow(dt, t);
     // audio mix: outdoor vs indoor, nearest aircraft
     const indoor = INDOOR.has(this.zoneId) ? 1 : 0;
     let air = 0;

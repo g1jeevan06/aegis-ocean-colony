@@ -3,6 +3,7 @@
 import { octPts, circlePts, sectorToWorld, T8, TAU } from './util.js';
 import { SATS, satOutline } from './satellites.js';
 import { LOGS } from './data.js';
+import { SPEAKERS } from './story.js';
 import { ELEV, SVC_STAIR } from './colony.js';
 
 const $ = (id) => document.getElementById(id);
@@ -216,7 +217,7 @@ export class UI {
     g.fillStyle = 'rgba(232,246,255,0.5)'; g.font = '14px "Share Tech Mono"'; g.fillText('N ↑   ·   grid 6 m', 20, H - 20);
   }
 
-  journal(found, onPick) {
+  journal(found, onPick, heard = []) {
     const list = $('j-list'); list.innerHTML = '';
     const ids = Object.keys(LOGS);
     $('j-count').textContent = `${found.size} / ${ids.length}`;
@@ -226,7 +227,37 @@ export class UI {
       else { b.textContent = '▢  Unrecovered log'; b.className = 'locked'; }
       list.appendChild(b);
     }
+    if (heard.length) {
+      const h = document.createElement('div'); h.className = 'sec'; h.textContent = 'RADIO TRANSMISSIONS'; list.appendChild(h);
+      for (const [who, text] of heard.slice().reverse()) {
+        const d = document.createElement('div'); d.className = 'tx'; d.style.setProperty('--sp', SPEAKERS[who].color);
+        const b = document.createElement('b'); b.textContent = SPEAKERS[who].name; d.append(b, text); list.appendChild(d);
+      }
+    }
   }
+  // ---------------------------------------------------------------- story
+  radio(who, text) {
+    const r = $('radio');
+    if (!who) { r.classList.add('hidden'); return; }
+    const sp = SPEAKERS[who];
+    r.style.setProperty('--sp', sp.color);
+    $('radio-who').textContent = sp.name; $('radio-say').textContent = text;
+    r.classList.add('hidden'); void r.offsetWidth; r.classList.remove('hidden');
+  }
+  chapter(c) {
+    const el = $('chapter');
+    $('ch-n').textContent = c.n; $('ch-t').textContent = c.t;
+    el.classList.remove('hidden', 'show'); void el.offsetWidth; el.classList.add('show');
+    clearTimeout(this._chT); this._chT = setTimeout(() => el.classList.add('hidden'), 5000);
+  }
+  caption(text, mono) {
+    const c = $('caption');
+    if (!text) { c.style.opacity = 0; return; }
+    c.classList.remove('hidden'); c.classList.toggle('mono', !!mono);
+    if (c.textContent !== text) { c.style.opacity = 0; clearTimeout(this._capT); this._capT = setTimeout(() => { c.textContent = text; c.style.opacity = 1; }, c.textContent ? 450 : 0); }
+    else c.style.opacity = 1;
+  }
+  clearCaption() { const c = $('caption'); c.textContent = ''; c.style.opacity = 0; c.classList.add('hidden'); clearTimeout(this._capT); }
   showLog(id) { const L = LOGS[id]; $('lv-title').textContent = L.title; $('lv-by').textContent = L.by.toUpperCase(); $('lv-body').textContent = L.text; this.open('logview'); }
   letterbox(on) {
     const W = window.innerWidth, H = window.innerHeight;

@@ -132,7 +132,7 @@ async function boot() {
     sunCtl.follow(focus);
     sky.material.uniforms.time && (sky.material.uniforms.time.value = t);
     const ls = M.leaf.userData.shader; if (ls) ls.uniforms.uTime.value = t;
-    M.cryoFluid.emissiveIntensity = 1.6 + Math.sin(t * 1.3) * 0.3;
+    M.cryoFluid.emissiveIntensity = game.cryoGlow(t);
     M.growLight.emissiveIntensity = 5.0 + Math.sin(t * 0.5) * 0.5;
     post.grade.uniforms.uTime.value = t;
     renderer.info.reset();
