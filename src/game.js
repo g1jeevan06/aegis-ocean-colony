@@ -8,6 +8,7 @@ import { VOICES } from './voices.js';
 import { octApothem, sectorOf, worldToSector, sectorToWorld, clamp, damp, fmtTime, TAU, LV } from './util.js';
 import { SATS, satRadius } from './satellites.js';
 import { elevWorld } from './colony.js';
+import { Driving } from './drive.js';
 
 const INDOOR = new Set(['lobby', 'lounge', 'lab', 'cryo', 'airlock', 'eng', 'quarters', 'mess', 'corridor', 'atrium', 'gallery', 'mc', 'service', 'pump', 'lift']);
 const LEVEL_OF = (y) => (y < 5.3 ? -1 : y < 11.5 ? 0 : y < 17.5 ? 1 : 2);
@@ -42,6 +43,7 @@ export class Game {
     this.camPos = new THREE.Vector3(); this.camTarget = new THREE.Vector3();
     this.buildLightPool();
     this.buildPickups();
+    this.driving = new Driving(this, this.life, this.ctx);
     this.buildInteractables();
     this.bindInput();
     this.bindUI();
@@ -164,6 +166,10 @@ export class Game {
       use: () => this.resetBreaker(),
     });
     if (m.dive) add({ id: 'dive', p: m.dive, r: 2.4, hold: 0.8, label: () => 'Hold to dive into the moon pool', ok: () => !this.body.swim, use: () => this.dive() });
+    for (const bp of this.driving.boardPoints()) {
+      const names = { vtol: 'Board VTOL-3 and fly', boat: 'Take the speedboat', sub: 'Climb into the NEREID submersible' };
+      add({ id: bp.id, get p() { return bp.p(); }, r: bp.r, label: () => names[bp.v.kind], ok: bp.ok, use: () => this.driving.enter(bp.v) });
+    }
     for (let i = 0; i < 3; i++) add({ id: 'lift' + i, p: m['liftCall' + i], r: 1.6, label: () => this.elevAt(i) ? 'Lift is here' : 'Call lift', ok: () => true, can: () => !this.elevAt(i), use: () => this.callLift(i) });
     const cryoDoor = this.ctx.doors.find(d => d.id === 'door_r3');
     this.cryoDoor = cryoDoor;
@@ -239,6 +245,7 @@ export class Game {
     if (this.mode === 'end') return;
     if (c === 'Escape') { if (this.ui.anyOpen()) this.ui.closeTop(); else this.openPause(); return; }
     if (this.ui.anyOpen()) { if (c === 'KeyM' && this.ui.isOpen('mapview')) this.ui.closeTop(); if (c === 'KeyJ' && this.ui.isOpen('journal')) this.ui.closeTop(); return; }
+    if (this.driving.cur) { if (c === 'KeyE') this.driving.exit(); if (c === 'KeyM') this.openMap(); if (c === 'KeyJ') this.openJournal(); if (c === 'KeyP') this.togglePhoto(); return; }
     if (c === 'KeyE') this.interact(true);
     if (c === 'KeyM') this.openMap();
     if (c === 'KeyJ') this.openJournal();
@@ -476,6 +483,7 @@ export class Game {
   reset(explore) {
     const sp = this.ctx.spawn;
     this.body.pos.x = sp.p.x; this.body.pos.y = sp.p.y; this.body.pos.z = sp.p.z;
+    this.driving.exit();
     this.body.vel.x = this.body.vel.y = this.body.vel.z = 0; this.body.fly = false; this.body.swim = false;
     this.yaw = sp.yaw; this.pitch = -0.02;
     this.eyeY = sp.p.y + 1.62;
@@ -862,6 +870,8 @@ export class Game {
 
     this.playTime += dt;
     const b = this.body;
+    const driving = this.driving.update(dt, t, K, blocked, cam);
+    if (!driving) {
     const sprint = (K.ShiftLeft || K.ShiftRight) && !b.fly;
     this.crouch = damp(this.crouch, K.KeyC && !b.fly && !b.swim ? 1 : 0, 10, dt);
     const speed = b.fly ? (sprint || K.ShiftLeft ? 30 : 12) : b.swim ? (sprint ? 4.2 : 2.6) : (sprint ? 7.2 : 4.2) * (1 - this.crouch * 0.5);
@@ -901,6 +911,7 @@ export class Game {
     const bobA = b.grounded && !b.fly ? Math.sin(this.bob) * 0.035 * Math.min(1, Math.hypot(b.vel.x, b.vel.z) / 4) : 0;
     cam.position.set(b.pos.x, this.eyeY + bobA, b.pos.z);
     cam.rotation.set(this.pitch, this.yaw, Math.sin(this.bob * 0.5) * 0.004, 'YXZ');
+    }
 
     this.updateLift(dt);
     this.updateDoors(dt);
@@ -908,7 +919,8 @@ export class Game {
     this.pauseVoice(this.ui.anyOpen());
     if (!this.ui.anyOpen()) this.updateRadio(dt);
     if (this.fx.alarm && INDOOR.has(this.zoneId)) { this._alarmT = (this._alarmT || 0) - dt; if (this._alarmT <= 0) { this._alarmT = 3.2; this.audio.blip(520, 0.35, 'sawtooth', 0.035); setTimeout(() => this.audio.blip(390, 0.45, 'sawtooth', 0.035), 380); } }
-    if (!blocked) this.updateInteract(dt); else { this.ui.prompt(''); this.ui.hold(0); }
+    if (driving) { this.focus = null; this.ui.hold(0); this.ui.liftPick(false); }
+    else if (!blocked) this.updateInteract(dt); else { this.ui.prompt(''); this.ui.hold(0); }
 
     // pickups idle animation
     for (const pk of this.pickups) if (!pk.taken) { pk.card.rotation.y = t * 1.4; pk.card.position.y = 0.33 + Math.sin(t * 2 + pk.p.x) * 0.03; }
@@ -940,6 +952,7 @@ export class Game {
     const indoor = INDOOR.has(this.zoneId) || this.underwater ? 1 : 0; // under water sounds muffled like indoors
     let air = 0;
     for (const v of this.life.vtols) { const d = v.g.position.distanceTo(this.camera.position); air = Math.max(air, clamp(1 - d / 160, 0, 1)); }
+    if (this.driving.cur) air = this.driving.cur.kind === 'vtol' ? 1 : 0.45;
     if (this.life.parked && this.life.parked.state === 'takeoff') air = Math.max(air, clamp(1 - this.life.parked.g.position.distanceTo(this.camera.position) / 200, 0, 1));
     this.audio.mix(1 - indoor * 0.85, indoor, air * (indoor ? 0.2 : 1), this.liftDir || 0, dt);
   }

@@ -213,7 +213,7 @@ export function buildSatellites(B, M, S, ctx) {
       B.box(M.darkSmooth, 0, 16.7, 118, 2.0, 0.8, 1.4);
       B.pipe(M.cable, 0, 16.3, 118, 0, 10.6, 118, 0.03);
       ctx.marks.sub = B.wp(0, 9.2, 118);
-      ctx.marks.dive = B.wp(0, 6, 111.0); ctx.marks.diveTo = B.wp(0, -3, 118);
+      ctx.marks.dive = B.wp(0, 6, 111.0); ctx.marks.subBoard = B.wp(6.9, 6, 118); ctx.marks.diveTo = B.wp(0, -3, 118);
       ctx.marks.subYaw = B.worldYaw(0);
       ctx.blinkers.push({ p: B.wp(0, 17.95, 118), color: 0xffa726, period: 1.1 });
       for (let i = 0; i < 3; i++) P.container(B, M, 12.5, 6 + (i === 2 ? 2.6 : 0), 132 + (i % 2) * 2.6, Math.PI / 2, i === 1 ? M.dark : M.whiteClean);
@@ -230,6 +230,7 @@ export function buildSatellites(B, M, S, ctx) {
       B.rbox(M.darkSmooth, -4, 6.45, 110.4, 0.9, 0.9, 0.6, 0.05, 0, { col: true });
       B.box(M.orangeLight, -4, 6.91, 110.71, 0.7, 0.02, 0.02);
       ctx.marks.boat = B.wp(24, 0, 122);
+      ctx.marks.boatBoard = B.wp(17.2, 6, 122); // dock edge beside the boat
       ctx.marks.boatYaw = B.worldYaw(0);
     }
 

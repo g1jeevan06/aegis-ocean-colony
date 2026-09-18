@@ -77,6 +77,7 @@ button { font: inherit; color: inherit; }
 .prompt { position: absolute; left: 50%; top: calc(50% + 34px); transform: translateX(-50%); padding: 8px 14px; background: var(--panel); border: 1px solid var(--line); font-size: 14px; letter-spacing: 0.05em; white-space: nowrap; }
 .prompt kbd, .keys kbd, .lifepick kbd { font-family: var(--mono); background: var(--accent); color: #031018; padding: 1px 7px; margin-right: 8px; border-radius: 2px; font-weight: 700; }
 .prompt.locked { border-color: var(--danger); color: #ffd9d4; }
+.prompt.drive { top: auto; bottom: 150px; }
 .prompt.locked kbd { background: var(--danger); }
 .hold { position: absolute; left: 50%; top: 50%; width: 64px; height: 64px; margin: -32px 0 0 -32px; }
 #toasts { position: absolute; left: 50%; bottom: 90px; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 8px; }
@@ -268,6 +269,7 @@ select { background: var(--panel-solid); color: var(--text); border: 1px solid v
       <div>Fly mode (level review) <b>F</b></div><div>Hide HUD <b>H</b></div>
       <div>Menu <b>Esc</b></div><div>Touch <b>left drag move · right drag look</b></div>
       <div>Swim up / down <b>Space / C</b></div><div>Climb aboard <b>R</b></div>
+      <div>Vehicle: get in / out <b>E</b></div><div>Throttle / steer <b>W S / A D</b></div>
     </div>
     <p>Doors open when you approach. Red doors need clearance. Data logs glow cyan — collect all twenty to hear the colony's story. Some rooms have more than one way in.</p>
   </div>
@@ -291,6 +293,7 @@ select { background: var(--panel-solid); color: var(--text); border: 1px solid v
       <li>Press <kbd>Space</kbd> or <b>SKIP</b> to skip the opening and ending films.</li>
       <li><b>Dive:</b> at the Marine Dock, hold <kbd>E</kbd> at the moon pool railing, or just jump into the sea. Under water <kbd>Space</kbd> swims up, <kbd>C</kbd> swims down, <kbd>R</kbd> climbs back aboard. Down there are the colony's legs, lit pods, fish, coral and an inspection drone.</li>
       <li><b>Time of day</b> (Settings): Sunset or Day.</li>
+      <li><b>Vehicles:</b> walk up and press <kbd>E</kbd>. The <b>VTOL</b> is on the landing pad, the <b>speedboat</b> is beside the Marine Dock (board from the dock edge) and the <b>NEREID submersible</b> hangs over the moon pool. <kbd>W</kbd>/<kbd>S</kbd> throttle, <kbd>A</kbd>/<kbd>D</kbd> steer, <kbd>Space</kbd>/<kbd>C</kbd> up/down, <kbd>Shift</kbd> boost, mouse moves the camera, <kbd>E</kbd> gets out. Get out over the sea and you swim.</li>
     </ul>
 
     <h3>Walkthrough</h3>

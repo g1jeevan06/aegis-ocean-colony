@@ -58,6 +58,7 @@ export class UI {
     if (html !== this._lastPrompt) { this.el.prompt.innerHTML = html; this._lastPrompt = html; }
     this.el.prompt.classList.remove('hidden');
     this.el.prompt.classList.toggle('locked', !!locked);
+    this.el.prompt.classList.toggle('drive', locked === 'drive');
   }
   hold(f) {
     if (f <= 0) { this.el.hold.classList.add('hidden'); return; }

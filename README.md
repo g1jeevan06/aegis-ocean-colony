@@ -60,6 +60,7 @@ If the game is slow, pick **Medium** or **Low**.
 - **Look**: soft ambient-occlusion shadows in corners (High and Ultra), weathered outdoor
   panels (rust streaks, grey drips, salt), wet patches and oil on the decks, algae along the
   waterline, drainpipes and cable trays, leafy plants, whitecaps, spray, drifting clouds.
+- **Vehicles**: fly the VTOL, drive the speedboat, pilot the NEREID submersible (press E next to them).
 - **Voice acting**: every radio line is voiced (synthetic neural voices with a radio
   effect). See [GUIDE.md](GUIDE.md) for the player walkthrough, the cast, and how to
   change lines or swap in real actors.
@@ -114,4 +115,5 @@ Source files in `src/`:
 | `export.js` | glTF export for Unreal |
 | `dedupe.js` | Removes hidden double faces while loading, so surfaces do not flicker |
 | `spray.js` | Sea spray where waves hit the hull and platforms |
+| `drive.js` | Flyable VTOL, speedboat and submersible (third-person controls) |
 | `underwater.js` | Seabed, support legs and lit pods, coral, fish, ROV, the view from below the surface |

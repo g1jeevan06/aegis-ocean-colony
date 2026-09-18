@@ -281,8 +281,9 @@ export function createLife(scene, M, T, ctx, ocean) {
     life.sea.push({ g: s, r: 70 + R() * 110, sp: (0.03 + R() * 0.03) * (i % 2 ? 1 : -1), ph: R() * TAU, glow: gi++ });
   }
   // ---- floating things around the dock
-  if (ctx.marks.boat) { const b = makeBoat(M); b.position.copy(ctx.marks.boat); b.rotation.y = ctx.marks.boatYaw || 0; scene.add(b); life.misc.push({ g: b, kind: 'bob', base: b.position.y, ph: 1 }); }
-  if (ctx.marks.sub) { const s = makeSub(M); s.position.copy(ctx.marks.sub); s.rotation.y = ctx.marks.subYaw || 0; scene.add(s); life.misc.push({ g: s, kind: 'swing', base: s.position.clone(), ph: 0 }); }
+  // the dock boat and the submersible can be driven (drive.js animates them)
+  if (ctx.marks.boat) { const b = makeBoat(M); b.position.copy(ctx.marks.boat); b.rotation.y = ctx.marks.boatYaw || 0; scene.add(b); life.boatG = b; }
+  if (ctx.marks.sub) { const s = makeSub(M); s.position.copy(ctx.marks.sub); s.rotation.y = ctx.marks.subYaw || 0; scene.add(s); life.subG = s; }
   // ---- turbines
   for (const t of ctx.turbines) { const g = makeTurbine(M, t); scene.add(g); life.turbines.push(g); }
   // ---- holograms
@@ -435,6 +436,6 @@ export function createLife(scene, M, T, ctx, ocean) {
     }
     for (const b of life.blink) { const on = ((t + b.ph) % b.period) < 0.35; b.s.material.opacity = on ? 1 : 0.08; }
   };
-  life.takeoff = () => { if (life.parked && life.parked.state === 'idle') life.parked.state = 'takeoff'; };
+  life.takeoff = () => { if (life.parked && life.parked.state === 'idle') { life.parked.state = 'takeoff'; life.parked.start.copy(life.parked.g.position); } };
   return life;
 }
