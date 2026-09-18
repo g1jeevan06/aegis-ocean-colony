@@ -135,7 +135,7 @@ export function buildColony(B, M, S, ctx) {
     // fascia + LED edge
     for (let i = 1; i < outline.length; i++) {
       const a = outline[i], b = outline[(i + 1) % outline.length];
-      B.wall(M.white, a[0], a[1], b[0], b[1], 5.4, 0.62, 0.2);
+      B.wall(M.white, a[0], a[1], b[0], b[1], 5.37, 0.73, 0.2); // 3 cm below the hull underside, 10 cm lip above the deck, not flush with it or the edge cap
       B.wall(M.cyan, a[0], a[1], b[0], b[1], 5.45, 0.05, 0.24);
     }
     P.railPath(B, M, [[6.2, v0], [9, 60], [9, 64], [6, 67.5], [-6, 67.5], [-9, 64], [-9, 60], [-6.2, v0]], 6.0);
@@ -297,7 +297,7 @@ export function buildColony(B, M, S, ctx) {
 
   // L1 roof slab (terrace + L2 floor)
   B.chunk = 'deck2'; B.interior = false;
-  B.slab(M.hullPaint, octPts(AP.RING1 + 0.2), [octPts(AP.ATRIUM), elevHole], 11.4, 12.0, { top: false }); // top is fully under the deck, dark ring and L2 floors
+  B.slab(M.hullPaint, octPts(AP.RING1 + 0.2), [octPts(AP.ATRIUM), elevHole], 11.4, 12.0, { top: false, bottom: 'shadow' }); // top under the L2 floors, underside behind the L1 ceilings // top is fully under the deck, dark ring and L2 floors
   B.colPoly(octPts(AP.RING1 + 0.2), 11.4, 12.0, 'floor', { holes: [octPts(AP.ATRIUM), elevHole] });
   B.flat(M.deck, octPts(AP.RING1 + 0.2), [octPts(AP.L2OUT)], 12.01);
   B.flat(M.dark, octPts(AP.L2IN), [octPts(AP.ATRIUM)], 12.01);
@@ -325,7 +325,7 @@ export function buildColony(B, M, S, ctx) {
     B.box(M.cyan, 0, 15, 0.46, 0.05, 5.0, 0.02);
     B.pop();
     B.box(M.white, 0, 12.18, AP.L2OUT, hwO * 2, 0.36, 0.45);
-    B.box(M.white, 0, 17.35, AP.L2OUT + 0.05, hwO * 2, 1.3, 0.55);
+    B.box(M.white, 0, 17.325, AP.L2OUT + 0.05, hwO * 2, 1.25, 0.55); // top 5 cm under the roof deck
     B.box(M.cyan, 0, 16.72, AP.L2OUT + 0.33, hwO * 2 - 1, 0.05, 0.04);
     B.box(M.metal, 0, 18.02, AP.L2OUT + 0.1, hwO * 2, 0.06, 0.8);
     B.box(M.glassTint, 0, 14.5, AP.L2OUT, hwO * 2, 4.3, 0.04);
@@ -500,7 +500,7 @@ function buildAtrium(B, M, S, ctx, R) {
   B.chunk = 'atrium'; B.interior = true;
   B.flat(M.floor, octPts(AP.ATRIUM), [], 6.012);
   // concentric inlays
-  for (const [r, m, w] of [[4.6, M.metal, 0.08], [10.6, M.cyanSoft, 0.05], [14.4, M.metal, 0.08], [16.5, M.cyanSoft, 0.05]]) {
+  for (const [r, m, w] of [[4.6, M.metalInlay, 0.08], [10.6, M.cyanSoft, 0.05], [14.4, M.metalInlay, 0.08], [16.5, M.cyanSoft, 0.05]]) {
     const g = new THREE.RingGeometry(r - w, r + w, 96); g.rotateX(-Math.PI / 2);
     B.addM(g, m, B.mat(0, 6.02, 0));
   }

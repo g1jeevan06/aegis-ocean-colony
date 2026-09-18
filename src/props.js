@@ -112,8 +112,8 @@ export function storage(B, M, x, y, z, ry, w = 2, h = 2, d = 0.5) {
   B.push(x, y, z, ry);
   B.rbox(M.whiteClean, 0, h / 2, 0, w, h, d, 0.03);
   const n = Math.max(1, Math.round(w / 0.6));
-  for (let i = 1; i < n; i++) B.box(M.darkSmooth, -w / 2 + i * w / n, h / 2, d / 2 + 0.001, 0.012, h - 0.1, 0.01);
-  B.box(M.darkSmooth, 0, h * 0.55, d / 2 + 0.001, w - 0.05, 0.012, 0.01);
+  for (let i = 1; i < n; i++) B.box(M.darkInlay, -w / 2 + i * w / n, h / 2, d / 2 + 0.001, 0.012, h - 0.1, 0.01);
+  B.box(M.darkInlay, 0, h * 0.55, d / 2 + 0.001, w - 0.05, 0.012, 0.01);
   for (let i = 0; i < n; i++) B.box(M.chrome, -w / 2 + (i + 0.5) * w / n + 0.18, h * 0.62, d / 2 + 0.02, 0.02, 0.18, 0.02);
   B.box(M.cyanSoft, 0, h + 0.005, d / 2 - 0.02, w - 0.06, 0.012, 0.02);
   B.colBox(0, h / 2, 0, w, h, d);
@@ -138,7 +138,7 @@ export function techPanel(B, M, x, y, z, ry, w = 1.2, h = 1.6) {
   B.box(M.dark, 0, h / 2, 0.04, w, h, 0.08);
   const R = rng((x * 100 + z * 7) | 0);
   for (let i = 0; i < 10; i++) B.box([M.cyan, M.amber, M.green, M.cyanSoft][(R() * 4) | 0], -w / 2 + 0.12 + R() * (w - 0.24), 0.2 + R() * (h - 0.4), 0.085, 0.05, 0.03, 0.01);
-  B.box(M.darkSmooth, 0, h * 0.72, 0.085, w * 0.7, h * 0.22, 0.01);
+  B.box(M.darkInlay, 0, h * 0.72, 0.085, w * 0.7, h * 0.22, 0.01);
   B.pop();
 }
 export function screenPanel(B, M, scr, x, y, z, ry, w, h, bezel = 0.06) {

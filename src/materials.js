@@ -86,6 +86,10 @@ export function makeMaterials(T) {
   for (const k of ['cyan', 'cyanSoft', 'cyanDim', 'teal', 'light', 'lightWarm', 'lightCool', 'orangeLight', 'red', 'redDim', 'amber', 'green', 'blue', 'growLight', 'hazard', 'grating', 'fabricGrey', 'yellow']) {
     if (M[k]) decal(M[k]);
   }
+  // flat inlays and rings laid onto floors
+  M.metalInlay = decal(M.metal.clone()); M.metalInlay.name = 'metalInlay';
+  M.whiteInlay = decal(M.whiteClean.clone()); M.whiteInlay.name = 'whiteInlay';
+  M.darkInlay = decal(M.darkSmooth.clone()); M.darkInlay.name = 'darkInlay'; // seams and inset panels
   return M;
 }
 

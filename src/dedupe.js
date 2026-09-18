@@ -73,21 +73,26 @@ export function removeHiddenFaces(pieces) {
         const gap = TD[b] - TD[a];
         if (Math.abs(gap) > EPS) continue;
         // who is in front: further out along the normal, or added later when flush
-        const bFront = Math.abs(gap) < 1e-4 ? TP[b] > TP[a] : gap > 0;
+        const oa = pieces[TP[a]].opaque, ob = pieces[TP[b]].opaque;
+        if (!oa && !ob) continue; // glass on glass: neither writes depth, so they cannot fight
+        // glass flush with a solid face always loses (a tint over a few mm is invisible);
+        // otherwise the face further out along the normal wins, or the later one when flush
+        const bFront = oa !== ob ? ob : (Math.abs(gap) < 1e-4 ? TP[b] > TP[a] : gap > 0);
         const [V, O] = bFront ? [A, B] : [B, A];
         const pv = pieces[TP[V.c]], po = pieces[TP[O.c]];
-        if (!po.opaque) continue;
-        // an interior-only face may hide an exterior one only when that face points
-        // up: tops never show in the sea reflection (layer 0) and do not cast the
-        // sun's shadows (back faces do), so removing them cannot open light leaks
-        if (po.layer !== pv.layer && pv.layer === 0 && TN[V.c * 3 + 1] < 0.5) continue;
-        let e = occ.get(V.c); if (!e) occ.set(V.c, e = { T: V.T, os: [] }); e.os.push(O.T);
+        // interior faces are not drawn in the sea reflection or the sun's shadow map,
+        // so an exterior face they hide keeps an invisible shadow-casting copy
+        // (only needed when it does not point up: back faces cast the shadows)
+        const keep = po.layer !== pv.layer && pv.layer === 0 && TN[V.c * 3 + 1] < 0.5;
+        let e = occ.get(V.c); if (!e) occ.set(V.c, e = { T: V.T, os: [], keep: false }); e.os.push(O.T); e.keep ||= keep;
       }
     }
   }
   const cut = new Map(); // piece -> Map(tri -> { polys, T })
   let skipped = 0;
-  for (const [c, { T, os }] of occ) {
+  const shadow = [];
+  for (const [c, { T, os, keep }] of occ) {
+    const limit = Math.abs(area(T)) < 4 ? HARD_POLYS : MAX_POLYS; // small props may break into more pieces
     let polys = [T];
     for (const O of os) {
       const nxt = [];
@@ -103,7 +108,7 @@ export function removeHiddenFaces(pieces) {
       polys = nxt;
       if (!polys.length || polys.length > HARD_POLYS) break;
     }
-    if (polys.length > MAX_POLYS) {
+    if (polys.length > limit) {
       // would shatter into slivers: drop it if what is left is next to nothing, else leave it whole
       const left = polys.reduce((s, p) => s + Math.abs(area(p)), 0);
       if (polys.length <= HARD_POLYS && left < 0.02 * Math.abs(area(T))) polys = [];
@@ -111,6 +116,7 @@ export function removeHiddenFaces(pieces) {
     }
     const before = Math.abs(area(T)), after = polys.reduce((s, p) => s + Math.abs(area(p)), 0);
     if (before - after < MIN_AREA) continue;
+    if (keep) { const a = pieces[TP[c]].g.attributes.position.array, i = TI[c] * 9; for (let j = 0; j < 9; j++) shadow.push(a[i + j]); }
     let m = cut.get(TP[c]); if (!m) cut.set(TP[c], m = new Map());
     m.set(TI[c], { polys, T });
   }
@@ -144,7 +150,7 @@ export function removeHiddenFaces(pieces) {
     g.setAttribute('normal', new THREE.Float32BufferAttribute(N, 3));
     g.setAttribute('uv', new THREE.Float32BufferAttribute(U, 2));
   }
-  return { triangles: n, cut: removed, added: Math.round(added), skipped, pieces: cut.size, ms: Math.round(performance.now() - t0) };
+  return { shadow: new Float32Array(shadow), triangles: n, cut: removed, added: Math.round(added), skipped, pieces: cut.size, ms: Math.round(performance.now() - t0) };
 }
 
 // integer bucket key: quantised normal in the high part, plane offset in the low part

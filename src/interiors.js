@@ -80,7 +80,7 @@ export function buildRoom(B, M, S, ctx, k) {
     const g = new THREE.RingGeometry(2.6, 2.68, 64); g.rotateX(-Math.PI / 2);
     B.addM(g, M.cyanSoft, B.mat(-1.5, 6.02, 36));
     const g2 = new THREE.RingGeometry(3.4, 3.44, 64); g2.rotateX(-Math.PI / 2);
-    B.addM(g2, M.metal, B.mat(-1.5, 6.02, 36));
+    B.addM(g2, M.metalInlay, B.mat(-1.5, 6.02, 36));
     sign(B, M, [{ text: 'LIFT ▸ GALLERY · MISSION CONTROL · OBSERVATION', size: 44, color: '#e8f6ff', y: 128 }], -8.2, 8.8, 27.2, 0, 2.6, 0.32);
     ctx.marks.lobby = B.wp(0, y, 36);
   }

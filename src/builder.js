@@ -135,12 +135,24 @@ export class Builder {
     this.addM(g, mat, this.mat(0, y, 0), opt);
   }
   slab(mat, pts, holes, y0, y1, opt = {}) {
-    const g = slabGeo(pts, holes || [], y1 - y0, opt.curveSegs || 12, opt.top !== false);
+    let g = slabGeo(pts, holes || [], y1 - y0, opt.curveSegs || 12, opt.top !== false);
+    if (opt.bottom === 'shadow') { // underside hidden behind ceilings: keep it only as a sun-shadow caster
+      if (g.index) g = g.toNonIndexed();
+      const p = g.attributes.position.array, bot = [], rest = [];
+      for (let i = 0; i < p.length / 9; i++) (p[i * 9 + 1] < 1e-4 && p[i * 9 + 4] < 1e-4 && p[i * 9 + 7] < 1e-4 ? bot : rest).push(i);
+      const pick = (ids) => { const f = new THREE.BufferGeometry(); for (const [n, a] of Object.entries(g.attributes)) { const k = a.itemSize * 3, o = new Float32Array(ids.length * k); ids.forEach((t, j) => o.set(a.array.subarray(t * k, t * k + k), j * k)); f.setAttribute(n, new THREE.BufferAttribute(o, a.itemSize)); } return f; };
+      this.addM(pick(bot), this.shadowOnly(), this.mat(0, y0, 0), { ...opt, interior: false });
+      g = pick(rest);
+    }
     this.addM(g, mat, this.mat(0, y0, 0), opt);
     if (opt.col) this.colPoly(pts, y0, y1, opt.col === true ? 'floor' : opt.col, { holes: holes, tag: opt.tag });
   }
   geo(g, mat, x = 0, y = 0, z = 0, ry = 0, s = 1, opt = {}) { this.add(g, mat, x, y, z, 0, ry, 0, s, s, s, opt); }
 
+  shadowOnly() { // draws nothing, but casts the sun's shadow
+    if (!this._shadowMat) { this._shadowMat = new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false }); this._shadowMat.name = 'shadowOnly'; this._shadowMat.userData.shadowOnly = true; }
+    return this._shadowMat;
+  }
   // ----- colliders (local coords -> world)
   xz(x, z) { const v = _p.set(x, 0, z).applyMatrix4(this.M); return [v.x, v.z]; }
   yW(y) { return y + this.M.elements[13]; }
@@ -177,11 +189,19 @@ export class Builder {
     // cut away faces hidden under other faces (no z-fighting "double faces")
     const pieces = [];
     for (const b of this.batches.values()) {
-      const m = b.mat, opaque = !m.transparent && !m.alphaTest && (m.opacity ?? 1) >= 1;
+      const m = b.mat, opaque = !m.transparent && !m.alphaTest && (m.opacity ?? 1) >= 1 && !m.userData.shadowOnly;
       for (const g of b.geos) pieces.push({ g, opaque, layer: b.interior ? 1 : 0 });
     }
     pieces.sort((a, b) => a.g.userData.order - b.g.userData.order);
     this.dedupe = removeHiddenFaces(pieces);
+    if (this.dedupe.shadow.length) { // invisible copies that keep the sun out of the rooms
+      const g = new THREE.BufferGeometry();
+      g.setAttribute('position', new THREE.BufferAttribute(this.dedupe.shadow, 3));
+      const m = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false }));
+      m.castShadow = true; m.receiveShadow = false; m.name = 'shadowOnly';
+      m.matrixAutoUpdate = false; m.updateMatrix(); m.frustumCulled = false;
+      scene.add(m); // not in meshes: the Unreal export should not get it
+    }
     for (const b of this.batches.values()) {
       const g = mergeGeometries(b.geos, false);
       for (const x of b.geos) x.dispose();

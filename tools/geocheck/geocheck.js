@@ -7,6 +7,7 @@
   const recs = [];
   const here = /geocheck|builder\.js|props\.js|util\.js/;
   globalThis.__GEO_REC = (g, mat) => {
+    if (mat.colorWrite === false) return; // shadow-only pieces are never drawn
     const frames = (new Error().stack || '').split('\n').slice(1).map(l => l.trim());
     const site = frames.filter(f => /\/src\//.test(f) && !here.test(f)).slice(0, 2)
       .map(f => { const m = f.match(/at (?:(\S+) )?\(?.*\/src\/([^:]+):(\d+):\d+/); return m ? `${m[2]}:${m[3]}${m[1] ? ' ' + m[1] : ''}` : f; });
@@ -81,7 +82,7 @@
           const [r1, r2] = A.t[0] < B.t[0] ? [A.t[0], B.t[0]] : [B.t[0], A.t[0]];
           const pk = r1 + '|' + r2;
           let e = pairs.get(pk);
-          if (!e) pairs.set(pk, e = { r1, r2, area: 0, gap: Math.abs(A.t[4] - B.t[4]), at: [A.t[5], A.t[6], A.t[7]] });
+          if (!e) pairs.set(pk, e = { r1, r2, area: 0, gap: Math.abs(A.t[4] - B.t[4]), at: [A.t[5], A.t[6], A.t[7]], n: [A.t[1], A.t[2], A.t[3]].map(v => +v.toFixed(2)) });
           e.area += ar;
         }
       }
@@ -92,11 +93,12 @@
       if (e.area < MIN_AREA) continue;
       const a = recs[e.r1], b = recs[e.r2];
       if (a.decal !== b.decal) continue; // a depth-offset decal always wins over its base
+      if (a.transparent && b.transparent) continue; // neither writes depth: no fighting
       const same = a.mat === b.mat;
       const [s1, s2] = [`${a.site} {${a.mat}}`, `${b.site} {${b.mat}}`].sort();
       const gk = s1 + '  <>  ' + s2;
       let g = groups.get(gk);
-      if (!g) groups.set(gk, g = { a: s1, b: s2, sameMat: same, count: 0, area: 0, maxGap: 0, at: e.at.map(v => +v.toFixed(2)) });
+      if (!g) groups.set(gk, g = { a: s1, b: s2, sameMat: same, count: 0, area: 0, maxGap: 0, at: e.at.map(v => +v.toFixed(2)), n: e.n });
       g.count++; g.area += e.area; g.maxGap = Math.max(g.maxGap, e.gap);
     }
     const out = [...groups.values()].sort((x, y) => (x.sameMat - y.sameMat) || y.area - x.area);

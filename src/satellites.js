@@ -116,7 +116,7 @@ export function buildSatellites(B, M, S, ctx) {
 
     if (s.id === 'landing') {
       // pad markings
-      for (const [r0, r1, m] of [[8.6, 9.0, M.yellow], [6.3, 6.45, M.whiteClean], [9.3, 9.36, M.cyan]]) {
+      for (const [r0, r1, m] of [[8.6, 9.0, M.yellow], [6.3, 6.45, M.whiteInlay], [9.3, 9.36, M.cyan]]) {
         const g = new THREE.RingGeometry(r0, r1, 72); g.rotateX(-Math.PI / 2);
         B.addM(g, m, B.mat(0, 6.02, s.v + 2));
       }
