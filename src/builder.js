@@ -6,6 +6,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { flatGeo, slabGeo } from './util.js';
+import { removeHiddenFaces } from './dedupe.js';
 
 const _q = new THREE.Quaternion(), _e = new THREE.Euler(), _p = new THREE.Vector3(), _s = new THREE.Vector3();
 const UNIT_BOX = new THREE.BoxGeometry(1, 1, 1);
@@ -51,6 +52,7 @@ export class Builder {
     this.envOverride = null; // image-light scale for the current room (interiors are darker)
     this.variants = new Map();
     this.tris = 0;
+    this.seq = 0;
   }
   get M() { return this.stack[this.stack.length - 1]; }
   push(x = 0, y = 0, z = 0, ry = 0) {
@@ -85,6 +87,8 @@ export class Builder {
     if (!g.attributes.normal) g.computeVertexNormals();
     if (!g.attributes.uv) g.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(g.attributes.position.count * 2), 2));
     g.applyMatrix4(m);
+    g.userData.order = this.seq++;
+    if (globalThis.__GEO_REC) globalThis.__GEO_REC(g, mat); // tools/geocheck: overlapping-face audit
     const sc = opt.uv !== undefined ? opt.uv : mat.userData.uv;
     if (sc && !opt.keepUV && !mat.userData.keepUV) worldUV(g, sc);
     const chunk = opt.chunk || this.chunk;
@@ -131,7 +135,7 @@ export class Builder {
     this.addM(g, mat, this.mat(0, y, 0), opt);
   }
   slab(mat, pts, holes, y0, y1, opt = {}) {
-    const g = slabGeo(pts, holes || [], y1 - y0, opt.curveSegs || 12);
+    const g = slabGeo(pts, holes || [], y1 - y0, opt.curveSegs || 12, opt.top !== false);
     this.addM(g, mat, this.mat(0, y0, 0), opt);
     if (opt.col) this.colPoly(pts, y0, y1, opt.col === true ? 'floor' : opt.col, { holes: holes, tag: opt.tag });
   }
@@ -170,6 +174,14 @@ export class Builder {
 
   finalize(scene) {
     const meshes = [];
+    // cut away faces hidden under other faces (no z-fighting "double faces")
+    const pieces = [];
+    for (const b of this.batches.values()) {
+      const m = b.mat, opaque = !m.transparent && !m.alphaTest && (m.opacity ?? 1) >= 1;
+      for (const g of b.geos) pieces.push({ g, opaque, layer: b.interior ? 1 : 0 });
+    }
+    pieces.sort((a, b) => a.g.userData.order - b.g.userData.order);
+    this.dedupe = removeHiddenFaces(pieces);
     for (const b of this.batches.values()) {
       const g = mergeGeometries(b.geos, false);
       for (const x of b.geos) x.dispose();

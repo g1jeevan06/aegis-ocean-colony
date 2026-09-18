@@ -82,6 +82,11 @@ models, sounds) is generated in code, so there are no asset files.
 1. Install once: `npm install`
 2. Rebuild after editing `src/`: `npm run build` (writes `dist/game.js`)
 3. Optional local server: `npm run serve` then open http://localhost:8080
+4. Check for overlapping faces ("double faces" that flicker): `node tools/geocheck/run.mjs`.
+   It loads the game in a hidden Chrome and lists every pair of source lines whose faces sit
+   on top of each other. While loading, the game itself also cuts away faces hidden under
+   another face (`src/dedupe.js`). Thin strips, lamps and screens use a depth offset
+   (`decal()` in `materials.js`) so they always draw on top of the surface they sit on.
 
 Source files in `src/`:
 
@@ -104,3 +109,4 @@ Source files in `src/`:
 | `story.js` | Chapters, opening film, radio lines, the choice and both endings |
 | `voices.js` | Generated list of voice clips (length + text check) — made by `tools/voices/make_voices.py` |
 | `export.js` | glTF export for Unreal |
+| `dedupe.js` | Removes hidden double faces while loading, so surfaces do not flicker |

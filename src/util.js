@@ -96,9 +96,21 @@ export function flatGeo(pts, holes = [], down = false, curveSegs = 12) {
   return g;
 }
 // extruded slab from y=0 to y=h
-export function slabGeo(pts, holes = [], h = 0.5, curveSegs = 12) {
-  const g = new THREE.ExtrudeGeometry(shapeFrom(pts, holes), { depth: h, bevelEnabled: false, curveSegments: curveSegs });
+export function slabGeo(pts, holes = [], h = 0.5, curveSegs = 12, top = true) {
+  let g = new THREE.ExtrudeGeometry(shapeFrom(pts, holes), { depth: h, bevelEnabled: false, curveSegments: curveSegs });
   g.rotateX(-Math.PI / 2);
+  if (!top) { // drop the upper cap when something else covers it
+    if (g.index) g = g.toNonIndexed();
+    const p = g.attributes.position.array, keep = [];
+    for (let i = 0; i < p.length / 9; i++) if (!(p[i * 9 + 1] > h - 1e-4 && p[i * 9 + 4] > h - 1e-4 && p[i * 9 + 7] > h - 1e-4)) keep.push(i);
+    const f = g.clone();
+    for (const [name, a] of Object.entries(g.attributes)) {
+      const n = a.itemSize * 3, out = new Float32Array(keep.length * n);
+      keep.forEach((t, j) => out.set(a.array.subarray(t * n, t * n + n), j * n));
+      f.setAttribute(name, new THREE.BufferAttribute(out, a.itemSize));
+    }
+    f.clearGroups(); g = f;
+  }
   return g;
 }
 

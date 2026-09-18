@@ -275,7 +275,7 @@ function faceDetail(B, M, uA, uB, v, dir, top, outer) {
     B.box(M.dark, uc, y, v + dir * 0.04, L - 0.2, 1.8, 0.08);
     B.box(M.glassTint, uc, y, v + dir * 0.1, L - 0.5, 1.4, 0.05);
     if (outer) B.box(M.cyan, uc, y + 1.02, v + dir * 0.12, L - 0.5, 0.05, 0.03);
-    for (let u = uA + 1.6; u < uB - 1.2; u += 3.6) B.box(M.lightWarm, u, y, v + dir * 0.07, 1.1, 0.9, 0.02);
+    for (let u = uA + 1.6; u < uB - 1.2; u += 3.6) B.box(M.lightWarm, u, y, v + dir * 0.1, 1.1, 0.9, 0.02); // 3 cm proud of the panel, behind the glass
   }
   for (let u = uA + 0.4; u <= uB - 0.3; u += 3.2) B.box(M.whiteSmooth, u, (6 + top) / 2 + 0.5, v + dir * 0.3, 0.3, top - 7, 0.6);
   B.box(M.metal, uc, top + 0.05, v + dir * 0.1, L, 0.12, 0.55);

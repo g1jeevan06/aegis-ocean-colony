@@ -155,6 +155,7 @@ export function makeScreens() {
     const m = holo
       ? new THREE.MeshBasicMaterial({ map: t, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, color: new THREE.Color(1.6, 1.6, 1.6) })
       : new THREE.MeshBasicMaterial({ map: t, color: new THREE.Color(1.5, 1.5, 1.5), toneMapped: true });
+    m.polygonOffset = true; m.polygonOffsetFactor = -1; m.polygonOffsetUnits = -4; // sits 1-2 mm on its bezel
     m.userData.noShadow = true; m.userData.keepUV = true; m.name = 'scr_' + k;
     S[k] = m;
     list.push({ k, c, g, t });

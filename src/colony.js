@@ -27,6 +27,7 @@ export function sign(B, M, lines, x, y, z, ry, w, h, opt = {}) {
   if (!mat) {
     const t = signTex(lines, { w: opt.pw || 1024, h: opt.ph || Math.round(1024 * h / w), bg: opt.bg || 'rgba(4,14,20,0.92)', border: opt.border, stripe: opt.stripe });
     mat = new THREE.MeshBasicMaterial({ map: t, transparent: !!opt.transparent, color: new THREE.Color(opt.bright || 1.3, opt.bright || 1.3, opt.bright || 1.3) });
+    mat.polygonOffset = true; mat.polygonOffsetFactor = -1; mat.polygonOffsetUnits = -4; // 1 mm off its plate
     mat.userData.noShadow = true; mat.userData.keepUV = true; mat.name = 'sign';
     signCache.set(key, mat);
   }
@@ -296,7 +297,7 @@ export function buildColony(B, M, S, ctx) {
 
   // L1 roof slab (terrace + L2 floor)
   B.chunk = 'deck2'; B.interior = false;
-  B.slab(M.hullPaint, octPts(AP.RING1 + 0.2), [octPts(AP.ATRIUM), elevHole], 11.4, 12.0);
+  B.slab(M.hullPaint, octPts(AP.RING1 + 0.2), [octPts(AP.ATRIUM), elevHole], 11.4, 12.0, { top: false }); // top is fully under the deck, dark ring and L2 floors
   B.colPoly(octPts(AP.RING1 + 0.2), 11.4, 12.0, 'floor', { holes: [octPts(AP.ATRIUM), elevHole] });
   B.flat(M.deck, octPts(AP.RING1 + 0.2), [octPts(AP.L2OUT)], 12.01);
   B.flat(M.dark, octPts(AP.L2IN), [octPts(AP.ATRIUM)], 12.01);

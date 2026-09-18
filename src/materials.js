@@ -81,5 +81,12 @@ export function makeMaterials(T) {
   M.fxHolo = add(0x55eeff, 0.35); M.fxHolo.userData.noShadow = true;
 
   for (const k in M) M[k].name = k;
+  // decals: thin strips, lamps, markings and panels laid a few mm onto a bigger
+  // surface.  A depth offset makes them always win, so they never flicker.
+  for (const k of ['cyan', 'cyanSoft', 'cyanDim', 'teal', 'light', 'lightWarm', 'lightCool', 'orangeLight', 'red', 'redDim', 'amber', 'green', 'blue', 'growLight', 'hazard', 'grating', 'fabricGrey', 'yellow']) {
+    if (M[k]) decal(M[k]);
+  }
   return M;
 }
+
+export function decal(m) { m.polygonOffset = true; m.polygonOffsetFactor = -1; m.polygonOffsetUnits = -4; return m; }

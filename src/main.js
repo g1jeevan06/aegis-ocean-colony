@@ -27,7 +27,7 @@ async function boot() {
   catch (e) { ui.progress(0, 'WebGL is not available on this device/browser.'); throw e; }
   const scene = new THREE.Scene();
   scene.fog = new THREE.FogExp2(FOG_COLOR, 0.00085);
-  const camera = new THREE.PerspectiveCamera(72, innerWidth / innerHeight, 0.05, 14000);
+  const camera = new THREE.PerspectiveCamera(72, innerWidth / innerHeight, 0.12, 14000); // near 0.12 (player radius 0.34): 2.4x the depth precision of 0.05
   camera.layers.enable(1);
   camera.layers.enable(2);
   scene.add(camera);
@@ -48,6 +48,7 @@ async function boot() {
   buildExterior(B, M, screens.S, ctx);
   await tick(0.70, 'Merging geometry…');
   const meshes = B.finalize(scene);
+  console.info(`[AEGIS] hidden faces: ${B.dedupe.cut} triangles trimmed into ${B.dedupe.added} in ${B.dedupe.pieces} pieces, ${B.dedupe.skipped} left whole (${B.dedupe.ms} ms)`);
   console.info(`[AEGIS] ${meshes.length} batches, ${(B.tris / 1e6).toFixed(2)}M tris, ${world.all.length} colliders, ${B.lights.length} light anchors`);
 
   await tick(0.78, 'Lighting the sky…');
