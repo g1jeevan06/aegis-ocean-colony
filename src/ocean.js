@@ -65,6 +65,7 @@ uniform vec3 uShallow;
 uniform vec3 uGlowColor;
 uniform vec4 uGlows[${MAX_GLOWS}];
 uniform vec4 uFoamDiscs[8];
+uniform vec2 uReflTexel;
 varying vec3 vWorld;
 varying vec4 vRefl;
 varying vec3 vNrm;
@@ -93,9 +94,15 @@ void main() {
   vec3 R = reflect(-V, N); R.y = abs(R.y);
   vec3 refl = textureCube(tEnv, R).rgb;
   if (uPlanar > 0.5) {
-    vec2 ruv = vRefl.xy / vRefl.w + N.xz * 0.035 * fade;
-    vec4 pr = texture2D(tRefl, ruv);
-    refl = mix(refl, pr.rgb, 0.92);
+    // ripples break the mirror image up (clouds become broken streaks, not flat patches)
+    vec2 ruv = vRefl.xy / vRefl.w + (N.xz * 0.05 + dn * 0.035) * fade;
+    // five-tap blur: a wavy sea never gives a pin-sharp mirror, and it hides
+    // the stair-steps of the lower-resolution reflection target
+    vec2 o = uReflTexel * (1.4 + min(dist * 0.004, 2.5));
+    vec3 pr = texture2D(tRefl, ruv).rgb * 0.36
+      + (texture2D(tRefl, ruv + vec2(o.x, o.y)).rgb + texture2D(tRefl, ruv + vec2(-o.x, o.y)).rgb
+       + texture2D(tRefl, ruv + vec2(o.x, -o.y)).rgb + texture2D(tRefl, ruv + vec2(-o.x, -o.y)).rgb) * 0.16;
+    refl = mix(refl, pr, 0.92);
   }
 
   // body colour: deeper looking straight down, bright teal in wave faces
@@ -127,6 +134,13 @@ void main() {
   float fn = texture2D(tNormal, uv * 0.21 + vec2(uTime * 0.012, -uTime * 0.008)).r;
   float fn2 = texture2D(tNormal, uv * 0.07 - vec2(uTime * 0.006)).g;
   float foam = foamMask * smoothstep(0.52, 0.78, fn * 0.6 + fn2 * 0.4 + foamMask * 0.25 + vCrest * 0.3) * (1.0 - smoothstep(150.0, 600.0, dist));
+  // whitecaps: broken foam on the tallest crests, streaked along the wind
+  // only small broken patches right on the sharpest crests, never whole swells
+  float fn3 = texture2D(tNormal, uv * 0.43 + vec2(uTime * 0.03, -uTime * 0.02)).g; // r/g vary around 0.5; b is ~1 everywhere
+  float fn4 = texture2D(tNormal, uv * 0.19 - vec2(uTime * 0.012, uTime * 0.018)).r;
+  float crest = smoothstep(0.9, 1.5, vCrest);
+  float cap = crest * smoothstep(0.6, 0.72, fn3 * 0.55 + fn4 * 0.45) * (1.0 - smoothstep(180.0, 900.0, dist));
+  foam = max(foam, cap * 0.75);
 
   vec3 H = normalize(uSunDir + V);
   float NdH = max(dot(N, H), 0.0);
@@ -166,6 +180,7 @@ export function makeOcean(renderer, envCube, waterNormals, sunDir, quality) {
     uGlowColor: { value: new THREE.Color(0.2, 1.0, 0.8) },
     uGlows: { value: glows },
     uFoamDiscs: { value: discs },
+    uReflTexel: { value: new THREE.Vector2(1 / 512, 1 / 512) },
   }]);
   // merge clones values; re-attach the shared references
   uniforms.tNormal.value = waterNormals;
@@ -188,7 +203,7 @@ export function makeOcean(renderer, envCube, waterNormals, sunDir, quality) {
       refl.onBeforeRender = on ? origBefore : () => {};
       this.res = res;
     },
-    resize(w, h) { if (this.res) rt.setSize(Math.max(64, (w * this.res) | 0), Math.max(64, (h * this.res) | 0)); },
+    resize(w, h) { if (this.res) { const x = Math.max(64, (w * this.res) | 0), y = Math.max(64, (h * this.res) | 0); rt.setSize(x, y); uniforms.uReflTexel.value.set(1 / x, 1 / y); } },
     update(t, cam) {
       uniforms.uTime.value = t;
       // follow the camera on a coarse grid so the swell does not swim

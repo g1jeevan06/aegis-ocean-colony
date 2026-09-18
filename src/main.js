@@ -11,6 +11,7 @@ import { buildSatellites } from './satellites.js';
 import { buildExterior } from './exterior.js';
 import { makeOcean } from './ocean.js';
 import { createLife } from './vehicles.js';
+import { makeSpray } from './spray.js';
 import { Game } from './game.js';
 import { UI } from './ui.js';
 import { Audio } from './audio.js';
@@ -34,7 +35,7 @@ async function boot() {
 
   await tick(0.02, 'Generating surface materials…');
   let n = 0;
-  const T = await makeTextures(async (k) => { n++; await tick(0.02 + n / 16 * 0.36, 'Texturing · ' + k); });
+  const T = await makeTextures(async (k) => { n++; await tick(0.02 + n / 18 * 0.36, 'Texturing · ' + k); });
   const M = makeMaterials(T);
   const screens = makeScreens();
 
@@ -59,6 +60,14 @@ async function boot() {
   ctx.foam.slice(0, 8).forEach((f, i) => ocean.discs[i].set(f[0], f[1], f[2], f[3]));
   ocean.mesh.getReflectionCamera(camera).layers.set(0);
   const mist = makeMist(scene, T.mist);
+  // spray emitters: the colony hull (octagon, flat sides at 54.6 m) and every satellite / buoy ring
+  const hull = [];
+  for (let k = 0; k < 8; k++) {
+    const a = k * Math.PI / 4, nx = Math.sin(a), nz = Math.cos(a), tx = nz, tz = -nx, half = 54.6 * Math.tan(Math.PI / 8);
+    for (let u = -half; u <= half; u += 3) hull.push([nx * 54.8 + tx * u, nz * 54.8 + tz * u, nx, nz]);
+  }
+  for (const [x, z, r] of ctx.foam) for (let i = 0, n = Math.max(6, Math.round(r * 2 * Math.PI / 3)); i < n; i++) { const a = i / n * Math.PI * 2; hull.push([x + Math.sin(a) * r, z + Math.cos(a) * r, Math.sin(a), Math.cos(a)]); }
+  const spray = makeSpray(scene, T.mist, hull);
 
   await tick(0.86, 'Waking the drones…');
   const a3 = 3 * Math.PI / 4;
@@ -98,9 +107,11 @@ async function boot() {
     pr = [Math.min(dpr, 1) * 0.7, Math.min(dpr, 1), Math.min(dpr, 1.25), Math.min(dpr, 2)][q] || 1;
     renderer.setPixelRatio(pr);
     sunCtl.setShadowSize([0, 2048, 4096, 4096][q]);
-    ocean.setPlanar(q >= 2, q >= 3 ? 0.6 : 0.42);
+    ocean.setPlanar(q >= 2, q >= 3 ? 0.75 : 0.5);
     post.bloom.enabled = q >= 1;
+    post.ao.enabled = q >= 2;
     mist.group.visible = q >= 1;
+    spray.points.visible = q >= 1;
     resize();
   };
   // first-run default: Medium on small / touch screens
@@ -129,6 +140,7 @@ async function boot() {
     screens.update(dt, t);
     ocean.update(t, camera);
     mist.update(dt, camera);
+    spray.update(dt, t, camera);
     if (game.mode === 'title') focus.set(0, 0, 0); else focus.copy(camera.position);
     sunCtl.follow(focus);
     sky.material.uniforms.time && (sky.material.uniforms.time.value = t);

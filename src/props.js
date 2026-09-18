@@ -232,14 +232,20 @@ export function container(B, M, x, y, z, ry, mat) {
 }
 
 // ---------------------------------------------------------------- plants
+// a clump of leaf cards (alpha-cut leaf texture, two-sided) filling an ellipsoid
+export function leafClump(B, M, x, y, z, rx, ry, rz, n, size, R) {
+  for (let i = 0; i < n; i++) {
+    let u, v, w; do { u = R() * 2 - 1; v = R() * 2 - 1; w = R() * 2 - 1; } while (u * u + v * v + w * w > 1);
+    const s = size * (0.75 + R() * 0.5);
+    B.add(G.plane(), M.leaf, x + u * rx, y + v * ry, z + w * rz, (R() - 0.5) * 1.1, R() * Math.PI, (R() - 0.5) * 0.5, s, s, 1);
+  }
+}
 export function potPlant(B, M, x, y, z, s = 1, seed = 1) {
   const R = rng(seed + ((x * 97 + z * 13) | 0));
   B.cyl(M.whiteSmooth, x, y + 0.3 * s, z, 0.32 * s, 0.6 * s, 18);
   B.cyl(M.soil, x, y + 0.59 * s, z, 0.29 * s, 0.02, 14);
-  for (let i = 0; i < 9; i++) {
-    const a = R() * Math.PI * 2, r = R() * 0.22 * s;
-    B.add(G.cone(0, 1, 5), [M.plant, M.plantDark, M.plantLight][(R() * 3) | 0], x + Math.sin(a) * r, y + (0.9 + R() * 0.5) * s, z + Math.cos(a) * r, (R() - 0.5) * 0.6, R() * 3, (R() - 0.5) * 0.6, 0.14 * s, (0.6 + R() * 0.6) * s, 0.14 * s);
-  }
+  B.pipe(M.bark, x, y + 0.6 * s, z, x + 0.02, y + 1.0 * s, z - 0.02, 0.025 * s, 6);
+  leafClump(B, M, x, y + 1.1 * s, z, 0.34 * s, 0.4 * s, 0.34 * s, 14, 0.42 * s, R);
   B.colCyl(x, y, z, 0.32 * s, 0.9 * s, 8);
 }
 export function shrubBox(B, M, x, y, z, ry, w = 2.4, d = 0.8, seed = 3) {
@@ -247,9 +253,7 @@ export function shrubBox(B, M, x, y, z, ry, w = 2.4, d = 0.8, seed = 3) {
   B.rbox(M.whiteSmooth, 0, 0.35, 0, w, 0.7, d, 0.06);
   B.box(M.soil, 0, 0.69, 0, w - 0.12, 0.02, d - 0.12);
   const R = rng(seed);
-  for (let i = 0; i < w * 5; i++) {
-    B.add(G.sphere(8, 6), [M.plant, M.plantDark, M.plantLight][(R() * 3) | 0], (R() - 0.5) * (w - 0.3), 0.8 + R() * 0.15, (R() - 0.5) * (d - 0.3), 0, R() * 3, 0, 0.18 + R() * 0.12, 0.14 + R() * 0.1, 0.18 + R() * 0.12);
-  }
+  leafClump(B, M, 0, 0.92, 0, w / 2 - 0.12, 0.2, d / 2 - 0.1, Math.round(w * 8), 0.42, R);
   B.box(M.cyanDim, 0, 0.05, d / 2 + 0.001, w - 0.1, 0.02, 0.01);
   B.colBox(0, 0.4, 0, w, 0.8, d);
   B.pop();

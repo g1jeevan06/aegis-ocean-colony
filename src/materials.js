@@ -11,13 +11,15 @@ export function makeMaterials(T) {
   // ---- architecture
   M.white = std({ color: 0xffffff, ...T.white, roughness: 0.95, metalness: 0.0, normalScale: nscale(0.6) }, 2.4);
   M.whiteClean = std({ color: 0xffffff, ...T.whiteClean, roughness: 0.8, metalness: 0.0, normalScale: nscale(0.4) }, 3.0);
-  M.whiteSmooth = phy({ color: 0xeef1f4, roughness: 0.28, metalness: 0.0, clearcoat: 0.6, clearcoatRoughness: 0.2 }, null);
+  M.whiteSmooth = phy({ color: 0xdfe3e6, roughness: 0.42, metalness: 0.0, clearcoat: 0.25, clearcoatRoughness: 0.35 }, null); // painted composite, not glossy plastic
   M.metal = std({ color: 0xd7dce1, ...T.brushed, roughness: 0.9, metalness: 1.0 }, 1.2);
   M.chrome = std({ color: 0xe8ecef, roughness: 0.12, metalness: 1.0 }, null);
   M.dark = std({ color: 0xffffff, ...T.dark, roughness: 1.0, metalness: 0.55, normalScale: nscale(0.8) }, 2.4);
   M.darkSmooth = std({ color: 0x1c2026, roughness: 0.38, metalness: 0.6 }, null);
   M.gunmetal = std({ color: 0x3a4048, ...T.brushed, roughness: 0.8, metalness: 0.9 }, 1.5);
   M.hull = std({ color: 0x8b939b, ...T.dark, roughness: 1.0, metalness: 0.4 }, 4.0);
+  // green-brown growth and staining where the sea washes the hull
+  M.algae = std({ color: 0x55604a, ...T.dark, roughness: 1.0, metalness: 0.1 }, 2.0);
   M.hullPaint = std({ color: 0x40464d, ...T.white, roughness: 0.9, metalness: 0.3 }, 3.0);
   M.floor = std({ color: 0xffffff, ...T.floor, roughness: 1.0, metalness: 0.2, normalScale: nscale(0.5) }, 2.4);
   M.floorLight = std({ color: 0xffffff, ...T.floorLight, roughness: 0.9, metalness: 0.05, normalScale: nscale(0.5) }, 2.4);
@@ -27,7 +29,7 @@ export function makeMaterials(T) {
   M.hazard = std({ color: 0xffffff, ...T.hazard, roughness: 0.6, metalness: 0.1 }, 0.8);
   M.rubber = std({ color: 0x131517, roughness: 0.85, metalness: 0.0 }, null);
   M.plastic = std({ color: 0x2a2f35, roughness: 0.45, metalness: 0.1 }, null);
-  M.plasticWhite = std({ color: 0xdfe3e7, roughness: 0.35, metalness: 0.0 }, null);
+  M.plasticWhite = std({ color: 0xd4d9dd, roughness: 0.5, metalness: 0.0 }, null);
   M.orange = std({ color: 0xffffff, ...T.fabric, roughness: 0.85, metalness: 0.0 }, 0.6);
   M.fabricGrey = std({ color: 0xffffff, ...T.fabricGrey, roughness: 0.9, metalness: 0.0 }, 0.6);
   M.orangeGloss = std({ color: 0xe0622a, roughness: 0.35, metalness: 0.0 }, null);
@@ -80,6 +82,9 @@ export function makeMaterials(T) {
   M.fxBlueBeam = add(0x3aa0ff, 0.12, T.beam); M.fxBlueBeam.userData.noShadow = true;
   M.fxHolo = add(0x55eeff, 0.35); M.fxHolo.userData.noShadow = true;
 
+  // outdoor surfaces are weathered; indoors the same materials use clean maps
+  const clean = (m, t) => { m.userData.clean = { map: t.map, normalMap: t.normalMap, roughnessMap: t.roughnessMap }; };
+  clean(M.white, T.whiteIn); clean(M.dark, T.darkIn); clean(M.hullPaint, T.whiteIn);
   for (const k in M) M[k].name = k;
   // decals: thin strips, lamps, markings and panels laid a few mm onto a bigger
   // surface.  A depth offset makes them always win, so they never flicker.

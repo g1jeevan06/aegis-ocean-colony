@@ -6,6 +6,7 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
+import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
 import { rng } from './util.js';
 
 export const SUN_DIR = new THREE.Vector3(0.80, 0.52, -0.30).normalize();
@@ -39,7 +40,7 @@ export function makeRenderer(canvas) {
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
   renderer.setSize(window.innerWidth, window.innerHeight, false);
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 0.62;
+  renderer.toneMappingExposure = 0.58;
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFShadowMap;
@@ -55,7 +56,7 @@ export function makeSky(scene, renderer) {
   u.mieCoefficient.value = 0.0035;
   u.mieDirectionalG.value = 0.8;
   u.sunPosition.value.copy(SUN_DIR).multiplyScalar(1000);
-  if (u.cloudCoverage) { u.cloudCoverage.value = 0.42; u.cloudDensity.value = 0.5; u.cloudScale.value = 0.00022; u.cloudElevation.value = 0.55; u.cloudSpeed.value = 0.00001; }
+  if (u.cloudCoverage) { u.cloudCoverage.value = 0.42; u.cloudDensity.value = 0.5; u.cloudScale.value = 0.00022; u.cloudElevation.value = 0.55; u.cloudSpeed.value = 0.00006; }
   sky.frustumCulled = false;
   sky.name = 'sky';
   // the visible sky writes alpha 0 so the bloom pass can ignore it (no milky
@@ -143,7 +144,9 @@ export function makeMist(scene, tex) {
         s.position.x = Math.sin(s.userData.a) * s.userData.d;
         s.position.z = Math.cos(s.userData.a) * s.userData.d;
         const dist = s.position.distanceTo(cam.position);
-        s.material.opacity = s.userData.base * Math.min(1, Math.max(0, (dist - 180) / 260));
+        // haze only reads as haze near the horizon; seen from above it turns into blotches
+        const above = Math.min(1, Math.max(0, 1 - (cam.position.y - s.position.y) / (dist * 0.18 + 1)));
+        s.material.opacity = s.userData.base * Math.min(1, Math.max(0, (dist - 180) / 260)) * above;
       }
     },
   };
@@ -151,10 +154,24 @@ export function makeMist(scene, tex) {
 
 export function makeComposer(renderer, scene, camera) {
   const size = renderer.getDrawingBufferSize(new THREE.Vector2());
-  const rt = new THREE.WebGLRenderTarget(size.x, size.y, { type: THREE.HalfFloatType, samples: 4 });
+  // the scene's own depth is kept in a texture so ambient occlusion can reuse
+  // it instead of drawing the whole colony a second time
+  const depth = new THREE.DepthTexture(size.x, size.y, THREE.FloatType);
+  const rt = new THREE.WebGLRenderTarget(size.x, size.y, { type: THREE.HalfFloatType, samples: 4, depthTexture: depth });
   const composer = new EffectComposer(renderer, rt);
+  composer.renderTarget2.depthTexture.dispose();
+  composer.renderTarget2.depthTexture = depth; // both ping-pong targets share it, whichever the scene lands in
   const render = new RenderPass(scene, camera);
   composer.addPass(render);
+  // ambient occlusion: soft contact shadows in corners, under furniture, where
+  // walls meet floors.  It works from the depth of the main pass, so glass and
+  // glows (which do not write depth) are ignored and nothing is drawn twice.
+  const ao = new GTAOPass(scene, camera, size.x, size.y);
+  ao.setGBuffer(depth); // normals are rebuilt from depth
+  ao.updateGtaoMaterial({ radius: 2.2, distanceExponent: 1.6, thickness: 2.0, scale: 1.35, samples: 12, distanceFallOff: 0.5, screenSpaceRadius: false });
+  ao.updatePdMaterial({ lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: 5, rings: 2, samples: 12 });
+  ao.blendIntensity = 0.9;
+  composer.addPass(ao);
   const bloom = new UnrealBloomPass(new THREE.Vector2(size.x, size.y), 0.42, 0.18, 3.0);
   // clamped, soft-knee high pass: sun glints and lamp hot spots stop fogging the frame
   bloom.materialHighPassFilter.fragmentShader = `
@@ -181,5 +198,5 @@ export function makeComposer(renderer, scene, camera) {
   composer.addPass(new OutputPass());
   const grade = new ShaderPass(GradeShader);
   composer.addPass(grade);
-  return { composer, bloom, grade, rt };
+  return { composer, bloom, grade, rt, ao };
 }

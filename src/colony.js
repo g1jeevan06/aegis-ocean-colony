@@ -68,6 +68,7 @@ export function buildColony(B, M, S, ctx) {
   // ================================================================ HULL & LOWER STRUCTURES
   B.chunk = 'hull'; B.interior = false;
   B.slab(M.hull, octPts(AP.HULL), null, -5, 1.6);
+  B.slab(M.algae, octPts(AP.HULL + 0.012), [octPts(AP.HULL - 0.4)], -1.2, 0.75); // waterline growth band
   // corner pylons, legs and thrusters are added by exterior.js
   for (let k = 0; k < 8; k++) {
     B.push(0, 0, 0, sectorAngle(k));
@@ -553,7 +554,7 @@ function buildAtrium(B, M, S, ctx, R) {
         const r = r0 + (r1 - r0) * (row + 0.5) / 2;
         const px = Math.sin(a) * r, pz = Math.cos(a) * r;
         const s = 0.16 + R() * 0.1;
-        B.add(G.sphere(7, 5), [M.plant, M.plantLight, M.plantDark][(R() * 3) | 0], px, 6 + h + s * 0.6, pz, 0, R() * 3, 0, s * 1.2, s * 0.8, s * 1.2);
+        P.leafClump(B, M, px, 6 + h + s * 0.9, pz, s, s * 0.6, s, 3, 0.4, R);
       }
     }
     // grow-light arches

@@ -64,10 +64,11 @@ function roofTree(B, M, x, y, z, s = 1, seed = 1) {
   B.rbox(M.whiteSmooth, x, y + 0.35, z, 2.0 * s, 0.7, 2.0 * s, 0.1, 0, { col: true });
   B.box(M.soil, x, y + 0.71, z, 1.8 * s, 0.02, 1.8 * s);
   B.cyl(M.bark, x, y + 1.7, z, 0.12 * s, 2.0 * s, 8);
-  for (let i = 0; i < 6; i++) {
-    const a = R() * Math.PI * 2, r = R() * 0.6 * s;
-    B.sphere([M.plant, M.plantDark, M.plantLight][i % 3], x + Math.sin(a) * r, y + (2.6 + R() * 1.0) * s, z + Math.cos(a) * r, (0.7 + R() * 0.4) * s, { w: 10, h: 8 });
+  for (let i = 0; i < 4; i++) { // a few limbs into the crown
+    const a = i / 4 * Math.PI * 2 + R();
+    B.pipe(M.bark, x, y + 2.3 * s, z, x + Math.sin(a) * 0.6 * s, y + 3.1 * s, z + Math.cos(a) * 0.6 * s, 0.05 * s, 6);
   }
+  P.leafClump(B, M, x, y + 3.1 * s, z, 1.15 * s, 0.75 * s, 1.15 * s, 34, 1.1 * s, R);
 }
 function miniCrane(B, M, x, y, z, ry) {
   B.push(x, y, z, ry);
@@ -277,7 +278,19 @@ function faceDetail(B, M, uA, uB, v, dir, top, outer) {
     if (outer) B.box(M.cyan, uc, y + 1.02, v + dir * 0.12, L - 0.5, 0.05, 0.03);
     for (let u = uA + 1.6; u < uB - 1.2; u += 3.6) B.box(M.lightWarm, u, y, v + dir * 0.1, 1.1, 0.9, 0.02); // 3 cm proud of the panel, behind the glass
   }
-  for (let u = uA + 0.4; u <= uB - 0.3; u += 3.2) B.box(M.whiteSmooth, u, (6 + top) / 2 + 0.5, v + dir * 0.3, 0.3, top - 7, 0.6);
+  let fin = 0;
+  for (let u = uA + 0.4; u <= uB - 0.3; u += 3.2) {
+    B.box(M.whiteSmooth, u, (6 + top) / 2 + 0.5, v + dir * 0.3, 0.3, top - 7, 0.6);
+    if (outer && fin++ % 3 === 1) { // rain downpipe with brackets beside the fin
+      B.cyl(M.gunmetal, u + 0.36, (6 + top) / 2, v + dir * 0.2, 0.075, top - 6, 10);
+      for (let y = 7; y < top - 0.5; y += 2.2) B.box(M.darkSmooth, u + 0.36, y, v + dir * 0.12, 0.2, 0.06, 0.18);
+      B.cyl(M.gunmetal, u + 0.36, 6.1, v + dir * 0.32, 0.09, 0.2, 10); // outlet shoe
+    }
+  }
+  if (outer) { // cable tray between the plinth and the first window band
+    B.box(M.gunmetal, uc, 7.4, v + dir * 0.2, L - 0.3, 0.07, 0.2);
+    B.box(M.cable, uc, 7.46, v + dir * 0.2, L - 0.4, 0.05, 0.14);
+  }
   B.box(M.metal, uc, top + 0.05, v + dir * 0.1, L, 0.12, 0.55);
   B.box(M.white, uc, top + 0.45, v - dir * 0.2, L, 0.8, 0.3);
 }

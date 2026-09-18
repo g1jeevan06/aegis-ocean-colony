@@ -30,6 +30,7 @@ function platform(B, M, s, holes = []) {
   B.flat(M.deck, pts, holes, 6.01);
   B.colPoly(pts, 5.4, 6.0, 'floor', { holes });
   B.slab(M.hull, shrink(pts, c, 2.2), holes.map(h => h), -3.5, 1.6);
+  B.slab(M.algae, shrink(pts, c, 2.188), [shrink(pts, c, 2.6)], -1.2, 0.75); // waterline growth band
   const n = pts.length;
   for (let i = 0; i < n; i++) {
     const a = pts[i], b = pts[(i + 1) % n];

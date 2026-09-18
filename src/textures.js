@@ -118,8 +118,52 @@ function ventSlots(g, hg, x, y, w, h, n) {
   }
 }
 
+
+// ---------------------------------------------------------------- weathering
+// sea-air wear drawn on top of a panel texture: rust bleeding down from bolts
+// and seams, grey rain drips, salt crust, and a dirtier band near the bottom.
+// Streaks that cross the tile edge wrap round so the texture still tiles.
+function weather(g, rg, size, amount, anchors, salt = 1) {
+  // one tapered streak running down from (x, y0); drawn wrapped so the tile repeats
+  const streak = (x, y0, len, w, rgb, alpha, rough) => {
+    for (const oy of [0, -size]) for (const ox of [0, -size, size]) {
+      const x0 = x + ox, y = y0 + oy;
+      if (x0 < -20 || x0 > size + 20 || y + len < 0 || y > size) continue;
+      const gr = g.createLinearGradient(0, y, 0, y + len);
+      gr.addColorStop(0, `rgba(${rgb},0)`); gr.addColorStop(0.08, `rgba(${rgb},${alpha})`); gr.addColorStop(1, `rgba(${rgb},0)`);
+      g.fillStyle = gr;
+      const wob = rnd(-4, 4);
+      g.beginPath(); g.moveTo(x0 - w / 2, y);
+      g.bezierCurveTo(x0 - w * 0.3 + wob, y + len * 0.4, x0 - w * 0.2 - wob, y + len * 0.7, x0, y + len);
+      g.bezierCurveTo(x0 + w * 0.2 + wob, y + len * 0.7, x0 + w * 0.3 - wob, y + len * 0.4, x0 + w / 2, y);
+      g.fill();
+      if (rough) { // rust is rougher than paint
+        const rr = rg.createLinearGradient(0, y, 0, y + len);
+        rr.addColorStop(0, 'rgba(255,255,255,0)'); rr.addColorStop(0.08, `rgba(255,255,255,${alpha * 0.5})`); rr.addColorStop(1, 'rgba(255,255,255,0)');
+        rg.fillStyle = rr; rg.fillRect(x0 - w / 2, y, w, len);
+      }
+    }
+  };
+  const nR = Math.round(46 * amount);
+  for (let i = 0; i < nR; i++) {
+    const [ax, ay] = anchors.length && R() < 0.8 ? anchors[(R() * anchors.length) | 0] : [rnd(0, size), rnd(0, size)];
+    streak(ax + rnd(-3, 3), ay, rnd(40, 260), rnd(3, 9), `${rnd(110, 150) | 0},${rnd(58, 78) | 0},${rnd(26, 38) | 0}`, rnd(0.25, 0.6) * amount, true);
+  }
+  for (let i = 0; i < Math.round(90 * amount); i++) streak(rnd(0, size), rnd(0, size), rnd(30, 200), rnd(2, 6), '60,64,66', rnd(0.06, 0.16) * amount, false);
+  // salt: faint smears along the lower edge of panels, wider than tall
+  for (let i = 0; i < Math.round(22 * amount * salt); i++) {
+    const [ax, ay] = anchors.length ? anchors[(R() * anchors.length) | 0] : [rnd(0, size), rnd(0, size)];
+    const r = rnd(30, 90);
+    g.save(); g.translate(ax, ay - rnd(0, 20)); g.scale(1, rnd(0.18, 0.35));
+    const gr = g.createRadialGradient(0, 0, 0, 0, 0, r);
+    gr.addColorStop(0, `rgba(214,216,208,${0.09 * amount * salt})`); gr.addColorStop(1, 'rgba(214,216,208,0)');
+    g.fillStyle = gr; g.fillRect(-r, -r, r * 2, r * 2); g.restore();
+  }
+  noiseOver(g, size, NOISE_COARSE, 0.12 * amount, 'multiply');
+}
+
 // ---------------------------------------------------------------- white composite panel
-function whitePanel(size = 1024, base = [226, 231, 235], grime = 0.10, seamDark = 0.5, detail = true) {
+function whitePanel(size = 1024, base = [226, 231, 235], grime = 0.10, seamDark = 0.5, detail = true, wear = 0) {
   const c = cv(size), g = c.getContext('2d');
   const hc = cv(size), hg = hc.getContext('2d');
   const rc = cv(size), rg = rc.getContext('2d');
@@ -128,7 +172,9 @@ function whitePanel(size = 1024, base = [226, 231, 235], grime = 0.10, seamDark 
   rg.fillStyle = 'rgb(105,105,105)'; rg.fillRect(0, 0, size, size);
   const panels = [];
   panelSplit(0, 0, size, size, 4, panels);
+  const anchors = [];
   for (const [x, y, w, h] of panels) {
+    anchors.push([x + 18, y + 18], [x + w - 18, y + 18], [x + w * rnd(0.2, 0.8), y + h - 2]);
     const t = rnd(-6, 6);
     g.fillStyle = `rgb(${base[0] + t},${base[1] + t},${base[2] + t + 1})`;
     g.fillRect(x + 3, y + 3, w - 6, h - 6);
@@ -164,11 +210,12 @@ function whitePanel(size = 1024, base = [226, 231, 235], grime = 0.10, seamDark 
   noiseOver(g, size, NOISE, 0.10, 'multiply');
   noiseOver(g, size, NOISE_FINE, 0.05, 'multiply', 0.25);
   noiseOver(rg, size, NOISE, 0.25, 'overlay');
+  if (wear) weather(g, rg, size, wear, anchors);
   return { map: set(c, true), normalMap: set(normalFrom(hc, 3.0), false), roughnessMap: set(rc, false) };
 }
 
 // ---------------------------------------------------------------- dark technical panel
-function darkPanel(size = 1024) {
+function darkPanel(size = 1024, wear = 0) {
   const c = cv(size), g = c.getContext('2d');
   const hc = cv(size), hg = hc.getContext('2d');
   const rc = cv(size), rg = rc.getContext('2d');
@@ -201,6 +248,7 @@ function darkPanel(size = 1024) {
   }
   noiseOver(g, size, NOISE, 0.18, 'overlay');
   noiseOver(rg, size, NOISE, 0.35, 'overlay');
+  if (wear) weather(g, rg, size, wear, panels.map(([x, y, w, h]) => [x + w * rnd(0.1, 0.9), y + h - 3]), 0.8);
   return { map: set(c, true), normalMap: set(normalFrom(hc, 2.5), false), roughnessMap: set(rc, false) };
 }
 
@@ -290,6 +338,23 @@ function deck(size = 1024) {
     const gr = g.createRadialGradient(x, y, 0, x, y, r);
     gr.addColorStop(0, 'rgba(70,75,70,0.12)'); gr.addColorStop(1, 'rgba(70,75,70,0)');
     g.fillStyle = gr; g.fillRect(x - r, y - r, r * 2, r * 2);
+  }
+  const blob = (ctx, x, y, r, col) => { const gr = ctx.createRadialGradient(x, y, 0, x, y, r); gr.addColorStop(0, col); gr.addColorStop(0.7, col); gr.addColorStop(1, col.replace(/[\d.]+\)$/, '0)')); ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill(); };
+  // oil and scuff marks, rust round the deck bolts
+  for (let i = 0; i < 12; i++) blob(g, rnd(0, size), rnd(0, size), rnd(10, 45), 'rgba(38,34,30,0.16)');
+  for (let j = 0; j < rows; j++) for (let i = -1; i < 2; i++) {
+    const x = (j % 2) * size / 4 + i * size / 2;
+    for (const [px, py] of [[x + 14, j * rh + 14], [x + size / 2 - 14, j * rh + rh - 14]]) if (R() < 0.6) blob(g, px, py + 3, rnd(6, 14), 'rgba(120,64,30,0.35)');
+  }
+  // standing water: puddles are darker and near-mirror smooth
+  for (let i = 0; i < 5; i++) {
+    const cx = rnd(size * 0.15, size * 0.85), cy = rnd(size * 0.15, size * 0.85), n = 6 + ((R() * 6) | 0);
+    for (let k = 0; k < n; k++) {
+      const x = cx + rnd(-70, 70), y = cy + rnd(-30, 30), r = rnd(10, 38);
+      for (const [ctx, col] of [[g, 'rgba(30,38,46,0.16)'], [rg, 'rgba(40,40,40,0.55)']]) {
+        ctx.save(); ctx.translate(x, y); ctx.scale(1, rnd(0.4, 0.8)); blob(ctx, 0, 0, r, col); ctx.restore();
+      }
+    }
   }
   return { map: set(c, true), normalMap: set(normalFrom(hc, 2), false), roughnessMap: set(rc, false) };
 }
@@ -471,9 +536,11 @@ export async function makeTextures(progress) {
   initNoise();
   const T = {};
   const steps = [
-    ['white', () => whitePanel(1024)],
-    ['whiteClean', () => whitePanel(1024, [236, 239, 242], 0.04, 0.35, false)],
-    ['dark', () => darkPanel(1024)],
+    ['white', () => whitePanel(1024, [212, 217, 221], 0.2, 0.5, true, 1.0)],
+    ['whiteIn', () => whitePanel(1024, [214, 219, 223])],
+    ['whiteClean', () => whitePanel(1024, [222, 226, 229], 0.04, 0.35, false)],
+    ['dark', () => darkPanel(1024, 0.9)],
+    ['darkIn', () => darkPanel(1024)],
     ['brushed', () => brushed(512)],
     ['floor', () => floorDark(1024)],
     ['floorLight', () => floorDark(1024, [150, 156, 162], 2)],

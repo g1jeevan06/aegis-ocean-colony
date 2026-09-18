@@ -75,7 +75,7 @@ export class Builder {
     if (es === 1 || !mat.isMeshStandardMaterial) return mat;
     const key = mat.uuid + '|' + es;
     let v = this.variants.get(key);
-    if (!v) { v = mat.clone(); v.envMapIntensity = (mat.envMapIntensity ?? 1) * es; v.name = mat.name + '_i' + es; this.variants.set(key, v); }
+    if (!v) { v = mat.clone(); if (mat.userData.clean) Object.assign(v, mat.userData.clean); v.envMapIntensity = (mat.envMapIntensity ?? 1) * es; v.name = mat.name + '_i' + es; this.variants.set(key, v); }
     return v;
   }
   addM(geo, mat, m, opt = {}) {
