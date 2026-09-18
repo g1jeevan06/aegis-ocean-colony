@@ -68,6 +68,7 @@ export function buildColony(B, M, S, ctx) {
   // ================================================================ HULL & LOWER STRUCTURES
   B.chunk = 'hull'; B.interior = false;
   B.slab(M.hull, octPts(AP.HULL), null, -5, 1.6);
+  B.colPoly(octPts(AP.HULL), -5, 1.6, 'solid');
   B.slab(M.algae, octPts(AP.HULL + 0.012), [octPts(AP.HULL - 0.4)], -1.2, 0.75); // waterline growth band
   // corner pylons, legs and thrusters are added by exterior.js
   for (let k = 0; k < 8; k++) {

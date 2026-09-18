@@ -31,6 +31,7 @@ function platform(B, M, s, holes = []) {
   B.flat(M.deck, pts, holes, 6.01);
   B.colPoly(pts, 5.4, 6.0, 'floor', { holes });
   B.slab(M.hull, shrink(pts, c, 2.2), holes.map(h => h), -3.5, 1.6);
+  B.colPoly(shrink(pts, c, 2.2), -3.5, 1.6, 'solid', { holes });
   B.slab(M.algae, shrink(pts, c, 2.188), [shrink(pts, c, 2.6)], -1.2, 0.75); // waterline growth band
   const n = pts.length;
   for (let i = 0; i < n; i++) {
@@ -51,7 +52,7 @@ function platform(B, M, s, holes = []) {
     B.wall(M.cyan, ao[0], ao[1], bo[0], bo[1], 5.55, 0.05, 0.04);
     // pontoon at each vertex
     const pv = shrink([a], c, 2.6)[0];
-    B.cyl(M.hullPaint, pv[0], -1.5, pv[1], 2.6, 7, 24);
+    B.cyl(M.hullPaint, pv[0], -1.5, pv[1], 2.6, 7, 24, { col: true });
     B.add(G.torus(2.62, 0.1, 6, 32), M.cyan, pv[0], 0.8, pv[1], Math.PI / 2, 0, 0);
     // railing, leaving a gap on the edge that faces the colony
     const ra = shrink([a], c, 0.3)[0], rb = shrink([b], c, 0.3)[0];
@@ -212,6 +213,7 @@ export function buildSatellites(B, M, S, ctx) {
       B.box(M.darkSmooth, 0, 16.7, 118, 2.0, 0.8, 1.4);
       B.pipe(M.cable, 0, 16.3, 118, 0, 10.6, 118, 0.03);
       ctx.marks.sub = B.wp(0, 9.2, 118);
+      ctx.marks.dive = B.wp(0, 6, 111.0); ctx.marks.diveTo = B.wp(0, -3, 118);
       ctx.marks.subYaw = B.worldYaw(0);
       ctx.blinkers.push({ p: B.wp(0, 17.95, 118), color: 0xffa726, period: 1.1 });
       for (let i = 0; i < 3; i++) P.container(B, M, 12.5, 6 + (i === 2 ? 2.6 : 0), 132 + (i % 2) * 2.6, Math.PI / 2, i === 1 ? M.dark : M.whiteClean);

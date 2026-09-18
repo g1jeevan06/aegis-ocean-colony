@@ -6,6 +6,8 @@ import * as THREE from 'three';
 import { Reflector } from 'three/addons/objects/Reflector.js';
 
 export const MAX_GLOWS = 52;
+// swell components (direction, steepness, wavelength) - must match the vertex shader
+const WAVES = [[1, 0.35, 0.10, 92], [0.6, -0.9, 0.08, 57], [-0.3, 1, 0.07, 34], [0.9, 0.9, 0.05, 21], [-1, 0.2, 0.04, 13]].map(([x, z, s, l]) => { const n = Math.hypot(x, z); return [x / n, z / n, s, l]; });
 
 const vert = /* glsl */`
 uniform float uTime;
@@ -204,6 +206,13 @@ export function makeOcean(renderer, envCube, waterNormals, sunDir, quality) {
       this.res = res;
     },
     resize(w, h) { if (this.res) { const x = Math.max(64, (w * this.res) | 0), y = Math.max(64, (h * this.res) | 0); rt.setSize(x, y); uniforms.uReflTexel.value.set(1 / x, 1 / y); } },
+    // water height at a point (same swell as the vertex shader, near field)
+    heightAt(x, z) {
+      const t = uniforms.uTime.value, calm = 0.35 + 0.65 * Math.min(1, Math.max(0, (Math.hypot(x, z) - 60) / 120));
+      let y = 0;
+      for (const [dx, dz, st, L] of WAVES) { const k = 2 * Math.PI / L, c = Math.sqrt(9.8 / k); y += (st * calm / k) * Math.sin(k * (dx * x + dz * z - c * t)); }
+      return y;
+    },
     update(t, cam) {
       uniforms.uTime.value = t;
       // follow the camera on a coarse grid so the swell does not swim

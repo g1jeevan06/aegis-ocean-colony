@@ -114,3 +114,4 @@ Source files in `src/`:
 | `export.js` | glTF export for Unreal |
 | `dedupe.js` | Removes hidden double faces while loading, so surfaces do not flicker |
 | `spray.js` | Sea spray where waves hit the hull and platforms |
+| `underwater.js` | Seabed, support legs and lit pods, coral, fish, ROV, the view from below the surface |

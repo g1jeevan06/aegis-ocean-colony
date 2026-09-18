@@ -12,6 +12,7 @@ import { buildExterior } from './exterior.js';
 import { makeOcean } from './ocean.js';
 import { createLife } from './vehicles.js';
 import { makeSpray } from './spray.js';
+import { underwaterMaterials, buildUnderwater, makeUnderwater } from './underwater.js';
 import { Game } from './game.js';
 import { UI } from './ui.js';
 import { Audio } from './audio.js';
@@ -48,6 +49,9 @@ async function boot() {
   await tick(0.60, 'Floating the satellite platforms…');
   buildSatellites(B, M, screens.S, ctx);
   buildExterior(B, M, screens.S, ctx);
+  const U = underwaterMaterials(M);
+  ctx.uwBeams = [];
+  buildUnderwater(B, M, U, ctx);
   await tick(0.70, 'Merging geometry…');
   const meshes = B.finalize(scene);
   console.info(`[AEGIS] hidden faces: ${B.dedupe.cut} triangles trimmed into ${B.dedupe.added} in ${B.dedupe.pieces} pieces, ${B.dedupe.skipped} left whole (${B.dedupe.ms} ms)`);
@@ -78,6 +82,24 @@ async function boot() {
   const life = createLife(scene, M, T, ctx, ocean);
   (ctx.staticGlows || []).forEach((g, i) => { const v = ocean.glows[32 + i]; if (v) v.set(g[0], g[1], g[2], g[3]); });
   const post = makeComposer(renderer, scene, camera);
+  // below the surface: legs, seabed and sea life are only drawn while the camera is under water
+  const underMeshes = meshes.filter(m => m.name.startsWith('under_'));
+  for (const m of underMeshes) m.visible = false;
+  const uw = makeUnderwater(scene, M, U, T, ctx, SUN_DIR);
+  const aboveFog = scene.fog;
+  let under = false, mistOn = true, aoOn = true;
+  const setUnder = (on) => {
+    under = on; game.underwater = on;
+    for (const m of underMeshes) m.visible = on;
+    uw.group.visible = on;
+    scene.fog = on ? uw.fog : aboveFog;
+    sky.visible = !on; ocean.mesh.visible = !on;
+    scene.background = on ? uw.water : null; // no black gap at the far edge
+    renderer.toneMappingExposure = (MOODS[game.settings.mood] || MOODS.sunset).exposure * (on ? 1.5 : 1); mist.group.visible = !on && mistOn; spray.points.visible = !on && mistOn;
+    sunCtl.hemi.intensity = on ? 1.1 : sunCtl.hemi.userData.base; sunCtl.hemi.color.set(on ? 0x6fd6d0 : sunCtl.hemi.userData.sky);
+    post.grade.uniforms.uUnder.value = on ? 1 : 0;
+    post.ao.enabled = !on && aoOn; // at the murky horizon the depth-based shadowing turns into a dark band
+  };
   const audio = new Audio();
   const game = new Game({ renderer, scene, camera, world, ctx, M, T, screens, life, ocean, audio, ui, anchors: B.lights });
 
@@ -111,9 +133,11 @@ async function boot() {
     sunCtl.setShadowSize([0, 2048, 4096, 4096][q]);
     ocean.setPlanar(q >= 2, q >= 3 ? 0.75 : 0.5);
     post.bloom.enabled = q >= 1;
-    post.ao.enabled = q >= 2;
-    mist.group.visible = q >= 1;
-    spray.points.visible = q >= 1;
+    aoOn = q >= 2;
+    post.ao.enabled = aoOn && !under;
+    mistOn = q >= 1;
+    mist.group.visible = mistOn && !under;
+    spray.points.visible = mistOn && !under;
     resize();
   };
   // first-run default: Medium on small / touch screens
@@ -126,6 +150,7 @@ async function boot() {
     scene.fog.color.copy(FOG_COLOR); scene.fog.density = m.fogD;
     renderer.toneMappingExposure = m.exposure;
     skyCtl.setMood(m); sunCtl.setMood(m); mist.setColor(m.mist);
+    sunCtl.hemi.userData.base = m.hemiI; sunCtl.hemi.userData.sky = m.hemiSky; if (under) setUnder(true);
     ocean.uniforms.uSunDir.value.copy(SUN_DIR); ocean.uniforms.uSunColor.value.setRGB(...m.seaSun);
     ocean.uniforms.uDeep.value.copy(seaBody[0]).multiplyScalar(m.seaBody); ocean.uniforms.uShallow.value.copy(seaBody[1]).multiplyScalar(m.seaBody);
     spray.setColor(name === 'day' ? 1.5 : 0.62);
@@ -156,6 +181,9 @@ async function boot() {
     ocean.update(t, camera);
     mist.update(dt, camera);
     spray.update(dt, t, camera);
+    const sub = game.mode !== 'title' && game.mode !== 'loading' && camera.position.y < ocean.heightAt(camera.position.x, camera.position.z) - 0.05;
+    if (sub !== under) setUnder(sub);
+    if (under) uw.update(dt, t, camera);
     if (game.mode === 'title') focus.set(0, 0, 0); else focus.copy(camera.position);
     sunCtl.follow(focus);
     sky.material.uniforms.time && (sky.material.uniforms.time.value = t);

@@ -95,6 +95,7 @@ export class PlayerBody {
     this.safe = { x: 0, y: 6, z: 0 };
     this._c = [];
     this.fly = false;
+    this.swim = false; this.swimUp = 0; // in the sea: buoyant, slow, still collides
   }
   groundAt(x, z, feet) {
     const cs = this.world.query(x, z, 0.01, this._c);
@@ -126,11 +127,14 @@ export class PlayerBody {
       if (Math.abs(gy - p.y) < 0.6) p.y = gy;
     }
     // horizontal accel
-    const accel = this.grounded ? 14 : 3;
+    const accel = this.swim ? 4 : (this.grounded ? 14 : 3);
     v.x += (wishX - v.x) * Math.min(1, accel * dt);
     v.z += (wishZ - v.z) * Math.min(1, accel * dt);
-    if (jump && this.grounded) { v.y = 5.2; this.grounded = false; }
-    v.y -= 19.6 * dt;
+    if (this.swim) { v.y += (this.swimUp * 2.6 - v.y) * Math.min(1, 3 * dt); }
+    else {
+      if (jump && this.grounded) { v.y = 5.2; this.grounded = false; }
+      v.y -= 19.6 * dt;
+    }
     if (v.y < -40) v.y = -40;
 
     // horizontal move + resolve (2 sub steps)

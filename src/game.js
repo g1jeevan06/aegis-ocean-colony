@@ -163,6 +163,7 @@ export class Game {
       ok: () => true, can: () => this.fx.alarm,
       use: () => this.resetBreaker(),
     });
+    if (m.dive) add({ id: 'dive', p: m.dive, r: 2.4, hold: 0.8, label: () => 'Hold to dive into the moon pool', ok: () => !this.body.swim, use: () => this.dive() });
     for (let i = 0; i < 3; i++) add({ id: 'lift' + i, p: m['liftCall' + i], r: 1.6, label: () => this.elevAt(i) ? 'Lift is here' : 'Call lift', ok: () => true, can: () => !this.elevAt(i), use: () => this.callLift(i) });
     const cryoDoor = this.ctx.doors.find(d => d.id === 'door_r3');
     this.cryoDoor = cryoDoor;
@@ -243,6 +244,7 @@ export class Game {
     if (c === 'KeyJ') this.openJournal();
     if (c === 'KeyH') { this.hudOn = !this.hudOn; this.ui.el.hud.classList.toggle('hidden', !this.hudOn); }
     if (c === 'KeyP') this.togglePhoto();
+    if (c === 'KeyR' && this.body.swim) this.climbAboard();
     if (c === 'KeyF' && !this.photo) { this.body.fly = !this.body.fly; this.body.vel.y = 0; this.ui.toast(this.body.fly ? 'Fly mode on — Space up · C down · F to land' : 'Fly mode off', ''); }
     if (/^Digit[123]$/.test(c) && this.inLift()) this.sendLift(+c.slice(5) - 1);
   }
@@ -474,7 +476,7 @@ export class Game {
   reset(explore) {
     const sp = this.ctx.spawn;
     this.body.pos.x = sp.p.x; this.body.pos.y = sp.p.y; this.body.pos.z = sp.p.z;
-    this.body.vel.x = this.body.vel.y = this.body.vel.z = 0; this.body.fly = false;
+    this.body.vel.x = this.body.vel.y = this.body.vel.z = 0; this.body.fly = false; this.body.swim = false;
     this.yaw = sp.yaw; this.pitch = -0.02;
     this.eyeY = sp.p.y + 1.62;
     this.flags = { keycard: false, restored: explore, scanned: false, transmitted: false, svcFound: false, pumpFound: false };
@@ -627,6 +629,19 @@ export class Game {
     const st = document.getElementById('end-stats');
     st.innerHTML = `<div><b>${fmtTime(this.playTime)}</b>Mission time</div><div><b>${this.logs.size}/${Object.keys(LOGS).length}</b>Data logs</div><div><b>${(this.flags.svcFound ? 1 : 0) + (this.flags.pumpFound ? 1 : 0)}/2</b>Hidden areas</div><div><b>${this.ending === 'purge' ? '1 of 2' : '2 of 2'}</b>${this.ending === 'purge' ? 'Ending · Orders' : 'Ending · Mercy'}</div>`;
     this.ui.open('end');
+  }
+
+  dive() {
+    const d = this.ctx.marks.diveTo, b = this.body;
+    b.pos.x = d.x; b.pos.y = d.y; b.pos.z = d.z; b.vel.x = b.vel.z = 0; b.vel.y = -1.5; b.swim = true;
+    this.audio.noiseHit(500, 0.7, 0.3, 'lowpass', -300);
+    this.ui.toast('Diving · Space up · C down · R to climb back aboard', 'ok');
+    this.lock();
+  }
+  climbAboard() {
+    const b = this.body;
+    b.swim = false; b.pos.x = b.safe.x; b.pos.y = b.safe.y + 0.2; b.pos.z = b.safe.z; b.vel.x = b.vel.y = b.vel.z = 0;
+    this.ui.toast('A drone lifted you back aboard', 'ok');
   }
 
   // ---------------------------------------------------------------- lift
@@ -848,8 +863,8 @@ export class Game {
     this.playTime += dt;
     const b = this.body;
     const sprint = (K.ShiftLeft || K.ShiftRight) && !b.fly;
-    this.crouch = damp(this.crouch, K.KeyC && !b.fly ? 1 : 0, 10, dt);
-    const speed = b.fly ? (sprint || K.ShiftLeft ? 30 : 12) : (sprint ? 7.2 : 4.2) * (1 - this.crouch * 0.5);
+    this.crouch = damp(this.crouch, K.KeyC && !b.fly && !b.swim ? 1 : 0, 10, dt);
+    const speed = b.fly ? (sprint || K.ShiftLeft ? 30 : 12) : b.swim ? (sprint ? 4.2 : 2.6) : (sprint ? 7.2 : 4.2) * (1 - this.crouch * 0.5);
     // forward = (-sin yaw, -cos yaw); right = (cos yaw, -sin yaw)
     const mvx = (-sy * fz + cy * fx) * speed, mvz = (-cy * fz - sy * fx) * speed;
     if (b.fly) {
@@ -866,10 +881,18 @@ export class Game {
         this.bob += moved * 1.9;
         if (this.stepAcc > (sprint ? 0.85 : 0.62)) { this.stepAcc = 0; const z = this.zoneId; this.audio.step(z === 'service' || z === 'bridge' || z === 'stairs' ? 'metal' : (z === 'atrium' ? 'soft' : 'hard')); }
       }
-      // fell into the sea: back to the last safe spot
-      if (b.pos.y < -2) {
-        b.pos.x = b.safe.x; b.pos.y = b.safe.y + 0.2; b.pos.z = b.safe.z; b.vel.x = b.vel.y = b.vel.z = 0;
-        this.ui.toast('Man overboard! A drone fished you out.', 'warn');
+      // in the sea: swim (Space up, C down), float with your head out at the surface
+      const surf = this.ocean.heightAt(b.pos.x, b.pos.z);
+      if (!b.swim && !b.grounded && b.pos.y + 1.2 < surf) {
+        b.swim = true; b.vel.y *= 0.2;
+        this.audio.noiseHit(600, 0.5, 0.25, 'lowpass', -300);
+        this.ui.toast('In the water · Space up · C down · R to climb aboard', 'warn');
+      }
+      if (b.swim) {
+        b.swimUp = (K.Space && !blocked ? 1 : 0) - (K.KeyC && !blocked ? 1 : 0);
+        const top = surf - 1.45;
+        if (b.pos.y > top) { b.pos.y = top; if (b.vel.y > 0) b.vel.y = 0; }
+        if (b.pos.y < -40) this.climbAboard();
       }
     }
     // camera
@@ -914,7 +937,7 @@ export class Game {
     this.updateLights(dt);
     this.updateSeaGlow(dt, t);
     // audio mix: outdoor vs indoor, nearest aircraft
-    const indoor = INDOOR.has(this.zoneId) ? 1 : 0;
+    const indoor = INDOOR.has(this.zoneId) || this.underwater ? 1 : 0; // under water sounds muffled like indoors
     let air = 0;
     for (const v of this.life.vtols) { const d = v.g.position.distanceTo(this.camera.position); air = Math.max(air, clamp(1 - d / 160, 0, 1)); }
     if (this.life.parked && this.life.parked.state === 'takeoff') air = Math.max(air, clamp(1 - this.life.parked.g.position.distanceTo(this.camera.position) / 200, 0, 1));

@@ -29,10 +29,10 @@ export const MOODS = {
 
 // final grade: vignette, slight cool lift in shadows, film grain
 const GradeShader = {
-  uniforms: { tDiffuse: { value: null }, uTime: { value: 0 }, uVignette: { value: 0.32 }, uGrain: { value: 0.035 } },
+  uniforms: { tDiffuse: { value: null }, uTime: { value: 0 }, uVignette: { value: 0.32 }, uGrain: { value: 0.035 }, uUnder: { value: 0 } },
   vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`,
   fragmentShader: `
-    uniform sampler2D tDiffuse; uniform float uTime; uniform float uVignette; uniform float uGrain; varying vec2 vUv;
+    uniform sampler2D tDiffuse; uniform float uTime; uniform float uVignette; uniform float uGrain; uniform float uUnder; varying vec2 vUv;
     float h(vec2 p){ return fract(sin(dot(p, vec2(12.9898,78.233))) * 43758.5453); }
     void main(){
       vec4 c = texture2D(tDiffuse, vUv);
@@ -45,6 +45,9 @@ const GradeShader = {
       c.rgb = mix(vec3(g0), c.rgb, 1.12);
       float l = dot(c.rgb, vec3(0.299, 0.587, 0.114));
       c.rgb += vec3(-0.012, 0.004, 0.02) * (1.0 - smoothstep(0.0, 0.5, l));
+      // under water: reds are absorbed first, everything leans blue-green, gentle wobble in the vignette
+      c.rgb = mix(c.rgb, c.rgb * vec3(0.5, 0.92, 1.0) + vec3(0.0, 0.012, 0.02), uUnder);
+      c.rgb *= 1.0 - uUnder * dot(q, q) * 0.9;
       c.rgb += (h(vUv * 1000.0 + uTime) - 0.5) * uGrain;
       gl_FragColor = c;
     }`,
